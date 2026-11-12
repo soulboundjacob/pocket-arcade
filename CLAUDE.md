@@ -1,0 +1,23 @@
+# Pocket Arcade
+
+A phone web game for Jacob and Laura: four one-tap mini-games, played solo or head-to-head on the same seeded course at the same time. Built 2026-11-12. Personal project.
+
+- Live: GitHub Pages from `main` (`https://soulboundjacob.github.io/pocket-arcade/`). Push to deploy.
+- Dev: preview server `pocket-arcade` in `~/Documents/work/.claude/launch.json` (port 4480). `?as=Laura` sets the player for one tab. Always test with `?room=test` (and `ROOM=test` for the bot) so test players never show up in the real room.
+- Solo test page: `dev/harness.html?game=plane&style=clay&ghost=1` (ghost=1 replays your own run 0.6 s late).
+
+## Layout
+- `index.html` app shell markup and styles. `js/shell.js` players, lobby, invites, matches, results. `js/net.js` live sync.
+- `js/engine.js` game contract (header comment), sprites, seeded RNG, fixed 120 Hz runner. World is 360x640 logical units.
+- `js/games/*.js` one file per game: `plane`, `flip`, `stack`, `keepup`.
+- `assets/manifest.json` sprite keys and logical sizes. `assets/<style>/` holds the renders for each look (clay, gloss, toon). The live look is `ARCADE_STYLE` in `index.html` (falls back to clay).
+
+## Live sync
+Supabase Realtime broadcast + presence on the epa608-study project. No tables, nothing stored server-side. Room name and anon key are in `js/config.js`. Both phones keep bests and the day's win tally in localStorage and merge by max when they meet.
+
+## Art
+Real Blender renders only (see the game-art rule in memory): scripts in `tools/art/`, Blender 5.2.3 headless. Never draw game objects in canvas code or emoji.
+
+## Tests
+- `node tools/smoke.mjs <game> 120 5` headless random play per game.
+- `ROOM=test node tools/bot.mjs` fake Laura that accepts invites and plays a fake run (`node tools/bot.mjs Laura invite flip` also invites you). Needs `npm i` in `tools/`.

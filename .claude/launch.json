@@ -1,0 +1,6 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    { "name": "pocket-arcade", "runtimeExecutable": "python3", "runtimeArgs": ["-m", "http.server", "4480", "--bind", "127.0.0.1"], "port": 4480 }
+  ]
+}

@@ -1,0 +1,61 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<title>Harness</title>
+<style>
+  html, body { margin: 0; height: 100%; background: #222; overflow: hidden; touch-action: none; -webkit-user-select: none; user-select: none; }
+  canvas { position: fixed; inset: 0; width: 100%; height: 100%; display: block; touch-action: none; }
+  #hud { position: fixed; top: 10px; left: 0; right: 0; text-align: center; font: 800 40px ui-rounded, system-ui, sans-serif; color: #fff; text-shadow: 0 2px 6px #0008; pointer-events: none; }
+  #msg { position: fixed; bottom: 24px; left: 0; right: 0; text-align: center; font: 600 16px system-ui; color: #fff; pointer-events: none; }
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<div id="hud">0</div>
+<div id="msg"></div>
+<script src="../js/engine.js"></script>
+<script>
+  // Solo test page: dev/harness.html?game=plane&style=clay&seed=42&ghost=1
+  // ghost=1 replays your own ghost 0.6 s late as a fake opponent.
+  const q = new URLSearchParams(location.search);
+  const id = q.get('game') || 'plane';
+  const style = q.get('style') || 'clay';
+  const s = document.createElement('script');
+  s.src = '../js/games/' + id + '.js';
+  s.onload = start;
+  document.head.appendChild(s);
+  let runner, seed = +(q.get('seed') || 42);
+  const ghosts = [];
+  async function start() {
+    await Arcade.loadSprites('../assets/', style).catch(() => {});
+    play();
+  }
+  function play() {
+    if (runner) runner.stop();
+    ghosts.length = 0;
+    hud.textContent = '0';
+    msg.textContent = '';
+    runner = Arcade.run({
+      canvas: c, game: id, seed,
+      me: { name: 'Jacob', color: 'blue' },
+      opp: q.get('ghost') ? { name: 'Laura', color: 'pink' } : null,
+      onScore: n => { hud.textContent = n; },
+      onOver: n => { msg.textContent = 'Over at ' + n + '. Tap to restart.'; setTimeout(() => addEventListener('pointerdown', again, { once: true }), 600); },
+      onGhost: o => ghosts.push({ t: performance.now(), o: JSON.parse(JSON.stringify(o)) }),
+      getGhost: () => {
+        if (!q.get('ghost')) return null;
+        const now = performance.now() - 600;
+        let best = null;
+        for (const x of ghosts) if (x.t <= now) best = x.o;
+        return best;
+      },
+    });
+    runner.go();
+    window.runner = runner;
+  }
+  function again() { play(); }
+</script>
+</body>
+</html>

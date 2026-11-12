@@ -1,0 +1,80 @@
+{
+  "note": "w/h are logical game units (the game world is 360x640). PNGs are rendered at 3x. ax/ay = anchor as a fraction of the image (default 0.5). Same keys, files and sizes in every style folder.",
+  "styles": [
+    "clay",
+    "gloss",
+    "toon"
+  ],
+  "sprites": {
+    "plane_blue": {
+      "file": "plane_blue.png",
+      "w": 60,
+      "h": 40
+    },
+    "plane_pink": {
+      "file": "plane_pink.png",
+      "w": 60,
+      "h": 40
+    },
+    "pencil": {
+      "file": "pencil.png",
+      "w": 56,
+      "h": 600,
+      "ax": 0.5,
+      "ay": 0.0
+    },
+    "skillet": {
+      "file": "skillet.png",
+      "w": 260,
+      "h": 90,
+      "ax": 0.6305,
+      "ay": 0.6433
+    },
+    "pancake_flip": {
+      "file": "flip/pancake_##.png",
+      "frames": 36,
+      "w": 130,
+      "h": 130
+    },
+    "pancake": {
+      "file": "pancake.png",
+      "w": 140,
+      "h": 40
+    },
+    "plate": {
+      "file": "plate.png",
+      "w": 240,
+      "h": 50
+    },
+    "butter": {
+      "file": "butter.png",
+      "w": 36,
+      "h": 24
+    },
+    "ball": {
+      "file": "ball.png",
+      "w": 96,
+      "h": 96
+    },
+    "thumb_plane": {
+      "file": "thumb_plane.png",
+      "w": 150,
+      "h": 100
+    },
+    "thumb_flip": {
+      "file": "thumb_flip.png",
+      "w": 150,
+      "h": 100
+    },
+    "thumb_stack": {
+      "file": "thumb_stack.png",
+      "w": 150,
+      "h": 100
+    },
+    "thumb_keepup": {
+      "file": "thumb_keepup.png",
+      "w": 150,
+      "h": 100
+    }
+  }
+}

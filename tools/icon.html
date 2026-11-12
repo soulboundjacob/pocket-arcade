@@ -1,0 +1,9 @@
+<!doctype html>
+<meta charset="utf-8">
+<style>
+  html, body { margin: 0; width: 512px; height: 512px; overflow: hidden; }
+  body { background: radial-gradient(circle at 50% 38%, #fff3e4 0%, #ffd9b8 70%, #ffc89c 100%); display: flex; align-items: center; justify-content: center; }
+  img { width: 470px; height: auto; margin-top: 10px; }
+</style>
+<img id="i">
+<script>document.getElementById('i').src = '../assets/' + (new URLSearchParams(location.search).get('style') || 'clay') + '/thumb_flip.png';</script>
