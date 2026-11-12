@@ -138,7 +138,9 @@
       s = Math.min(cw / W, usable / H);
       ox = (cw - W * s) / 2;
       oy = (usable - H * s) / 2;
-      view.x0 = -ox / s; view.y0 = -oy / s; view.x1 = W + ox / s; view.y1 = H + oy / s;
+      // The visible rect covers the whole canvas, including the strip kept clear for
+      // Safari's bar, so games paint their background all the way down.
+      view.x0 = -ox / s; view.y0 = -oy / s; view.x1 = (cw - ox) / s; view.y1 = (ch - oy) / s;
     }
     fit();
 
