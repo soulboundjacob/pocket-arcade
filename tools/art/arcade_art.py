@@ -1088,12 +1088,7 @@ def wheel(x, z, y, R=7.5):
 
 def b_cannon_base():
     objs = []
-    pts = [(-17, 6), (17, 6), (17, 14), (11, 23), (3.8, 23)]
-    for i in range(1, 8):  # small semicircular notch for the barrel trunnion
-        a = pi * i / 8
-        pts.append((3.8 * cos(a), 23 - 3.4 * sin(a) * 1.0))
-    pts += [(-3.8, 23), (-11, 23), (-17, 14)]
-    pts = [pts[0], pts[1], pts[2], pts[3], pts[4]] + [(3.8 * cos(pi * i / 8) * -1 * -1, 23 - 3.2 * sin(pi * i / 8)) for i in range(1, 8)] + pts[-3:]
+    pts = [(-17, 6), (17, 6), (17, 13), (13.5, 21), (-13.5, 21), (-17, 13)]
     body = prism('body', [(x * L, z * L) for x, z in pts], 10 * L, F('wood'), bevel=0.012, seg=3)
     add_outline(body); objs.append(body)
     # iron strap and nails (flat decals on the front face)
@@ -1101,6 +1096,7 @@ def b_cannon_base():
     objs.append(flat_poly('strap', [(-16.6 * L, 17.2 * L), (16.6 * L, 17.2 * L), (16.6 * L, 19.0 * L), (-16.6 * L, 19.0 * L)], yf, F('wood_dd')))
     for xx in (-13.5, 13.5):
         objs.append(sph('nail', 1.0 * L, (xx * L, yf - 0.001, 18.1 * L), F('barrel_l'), outline=False, seg=12, rings=8))
+    objs.append(cyl_y('pivot', 2.8 * L, 2.2 * L, (0, -5.6 * L, 18.2 * L), F('bronze'), seg=32))
     for xx in (-10, 10):
         objs.extend(wheel(xx, 7.5, -6.8))
     return objs
@@ -1203,15 +1199,15 @@ def b_moon(R=29.5 * L):
 
 def b_flag(col):
     objs = []
-    pole = lathe('pole', [(0, 0), (0.8 * L, 0), (0.8 * L, 19 * L), (0, 19 * L)], [0, 0, 0], seg=16, mats=[F('pole')], smooth=True, sharp=40)
+    pole = lathe('pole', [(0, 0), (0.8 * L, 0), (0.8 * L, 17 * L), (0, 17 * L)], [0, 0, 0], seg=16, mats=[F('pole')], smooth=True, sharp=40)
     pole.location = (0, -0.6 * L, 0); add_outline(pole); objs.append(pole)
-    objs.append(sph('knob', 1.7 * L, (0, -0.6 * L, 19.6 * L), F('gold'), seg=20, rings=12))
+    objs.append(sph('knob', 1.7 * L, (0, -0.6 * L, 17.6 * L), F('gold'), seg=20, rings=12))
     pts_t, pts_b = [], []
     n = 16
     for i in range(n + 1):
-        x = 0.6 + 10.0 * i / n
-        c = 13.4 + 1.3 * sin(0.62 * x + 0.2) - 0.18 * x
-        h = 4.6 * (1 - i / n) ** 0.85 + 0.35
+        x = 0.6 + 8.6 * i / n
+        c = 11.8 + 1.1 * sin(0.7 * x + 0.2) - 0.15 * x
+        h = 4.4 * (1 - i / n) ** 0.85 + 0.4
         pts_t.append((x * L, (c + h) * L)); pts_b.append((x * L, (c - h) * L))
     poly = pts_t + pts_b[::-1]
     cloth = prism('cloth', poly, 0.9 * L, F('f_' + col), bevel=0.003, seg=2)
@@ -1239,15 +1235,15 @@ def fort_sprite(key, build, wl, hl, elev=0, mode='fit', c=(0, 0), margin=1.0):
 
 def fort_sprites():
     # base: wheels touch the bottom edge (frame bottom = wheel bottom - outline), centred on x
-    fort_sprite('cannon_base', b_cannon_base, 40, 28, mode='exact', c=(0, -0.02 + 0.14))
+    fort_sprite('cannon_base', b_cannon_base, 40, 28, mode='exact', c=(0, -0.0133 + 0.14))
     # barrel: pivot (trunnion) at 20% from the left, vertically centred
     fort_sprite('cannon_barrel', b_cannon_barrel, 40, 18, mode='exact', c=(0.12, 0.0))
     fort_sprite('crown', b_crown, 26, 20, elev=24)
     fort_sprite('shot_ball', b_shotball, 12, 12, margin=0.6)
     fort_sprite('shot_drill', b_shotdrill, 22, 12, margin=0.6)
     fort_sprite('moon', b_moon, 64, 64, mode='exact', c=(0, 0))
-    fort_sprite('flag_blue', lambda: b_flag('blue'), 16, 24, mode='exact', c=(0.048, -0.02 + 0.12))
-    fort_sprite('flag_pink', lambda: b_flag('pink'), 16, 24, mode='exact', c=(0.048, -0.02 + 0.12))
+    fort_sprite('flag_blue', lambda: b_flag('blue'), 16, 24, mode='exact', c=(0.048, -0.0133 + 0.12))
+    fort_sprite('flag_pink', lambda: b_flag('pink'), 16, 24, mode='exact', c=(0.048, -0.0133 + 0.12))
 
 # ---- background ---------------------------------------------------------
 def bgplane(name, x0, x1, z0, z1, y, m):
@@ -1332,21 +1328,20 @@ def thumb_fort():
                     b = b_block(c); b.location = (cx + (ci - 1.5) * sp, 0, zb + rj * sp)
         outer = -1.5 if side < 0 else 1.5
         b = b_block(cols[0]); b.location = (cx + outer * sp, 0, zb + 3 * sp)
-        fl = b_flag(flag); fl.location = (cx + outer * sp - 0.032 * (1 if side < 0 else -1) * 0 , -0.02, zb + 3 * sp + 0.13)
-        if side > 0: fl.scale = (1, 1, 1)
-        crown = b_crown(); crown.scale = (1.25, 1.25, 1.25)
+        fl = b_flag(flag); fl.scale = (1.5, 1.5, 1.5); fl.location = (cx + outer * sp - 0.032 * (1 if side < 0 else -1) * 0 , -0.02, zb + 3 * sp + 0.13)
+        crown = b_crown(); crown.scale = (1.55, 1.55, 1.55)
         crown.location = (cx, -0.02, zb + 1 * sp - 0.13 + 0.015)
         top = zb + 2 * sp + 0.13
         cb = b_cannon_base(); rb = empty('cb'); adopt(rb, cb); rb.location = (cx - side * 0.17, 0, top)
-        pv = empty('pv'); pv.location = (cx - side * 0.17, -0.0, top + 0.225)
+        pv = empty('pv'); pv.location = (cx - side * 0.17, -0.0, top + 0.21)
         br = b_cannon_barrel(theta=radians(60) if side < 0 else radians(-60)); br.location = pv.location
         br.scale = (1, 1, 1)
     fort(-1.0, ['blue', 'teal', 'purple'], 'blue', -1)
     fort(1.0, ['pink', 'orange', 'red'], 'pink', 1)
     m = b_moon(0.27); m.location = (0.0, 0.45, 0.12)
-    ball = b_shotball(0.05); ball.location = (-0.36, -0.1, 0.5)
+    ball = b_shotball(7.0); ball.location = (-0.30, -0.1, 0.52)
     lights(); setup(600, 400)
-    make_cam(8, 3.4, (0.0, 0.0))
+    make_cam(8, 3.4, (0.0, -0.17))
     render(f'{OUT}/thumb_fort.png'); print(f'[{STYLE}] thumb_fort')
 
 
