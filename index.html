@@ -202,9 +202,10 @@
   .opp.blue .dot { background: var(--blue); }
   .opp.pink .dot { background: var(--pink); }
   .opp.solo .dot { display: none; }
-  .opp .tag { font-size: 13px; color: var(--muted); }
+  .opp .tag { font-size: 13px; color: var(--muted); white-space: nowrap; }
   .opp .tag:empty { display: none; }
   .opp.done { opacity: 0.85; }
+  #play.bare .mid, #play.bare .opp { visibility: hidden; }
   .countdown { position: absolute; left: 0; right: 0; top: 38%; text-align: center; font-size: 120px; opacity: 0; }
   .countdown.pop { animation: pop 0.7s ease-out forwards; }
   @keyframes pop { 0% { transform: scale(1.7); opacity: 0; } 25% { transform: scale(1); opacity: 1; } 75% { opacity: 1; } 100% { opacity: 0; transform: scale(0.9); } }
@@ -350,16 +351,17 @@
 <div id="conn" class="conn">Reconnecting…</div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"></script>
-<script>window.ARCADE_STYLE = "toon"; window.ARCADE_VERSION = "20261112120102";</script>
-<script src="js/config.js?v=20261112120102"></script>
-<script src="js/engine.js?v=20261112120102"></script>
-<script src="js/games/blocks.js?v=20261112120102"></script>
-<script src="js/games/critters.js?v=20261112120102"></script>
-<script src="js/games/plane.js?v=20261112120102"></script>
-<script src="js/games/flip.js?v=20261112120102"></script>
-<script src="js/games/stack.js?v=20261112120102"></script>
-<script src="js/games/keepup.js?v=20261112120102"></script>
-<script src="js/net.js?v=20261112120102"></script>
-<script src="js/shell.js?v=20261112120102"></script>
+<script>window.ARCADE_STYLE = "toon"; window.ARCADE_VERSION = "20261112130354";</script>
+<script src="js/config.js?v=20261112130354"></script>
+<script src="js/engine.js?v=20261112130354"></script>
+<script src="js/games/blocks.js?v=20261112130354"></script>
+<script src="js/games/critters.js?v=20261112130354"></script>
+<script src="js/games/hockey.js?v=20261112130354"></script>
+<script src="js/games/plane.js?v=20261112130354"></script>
+<script src="js/games/flip.js?v=20261112130354"></script>
+<script src="js/games/stack.js?v=20261112130354"></script>
+<script src="js/games/keepup.js?v=20261112130354"></script>
+<script src="js/net.js?v=20261112130354"></script>
+<script src="js/shell.js?v=20261112130354"></script>
 </body>
 </html>

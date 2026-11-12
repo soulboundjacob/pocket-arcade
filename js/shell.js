@@ -5,9 +5,11 @@
   const STYLE = window.ARCADE_STYLE || 'clay';
   const PLAYERS = { Jacob: 'blue', Laura: 'pink' };
   // fort.js (Fort Blast) stays in the repo but is off the menu: Jacob preferred the critter take.
-  const GAMES = ['blocks', 'critters', 'plane', 'flip', 'stack', 'keepup'];
-  const FEATURED = ['blocks', 'critters'];
-  const TINT = { blocks: '#3a3170', critters: '#c9ecff', plane: '#e4efff', flip: '#ffe6d1', stack: '#fff0c2', keepup: '#d6f2ff' };
+  const GAMES = ['blocks', 'critters', 'hockey', 'plane', 'flip', 'stack', 'keepup'];
+  const FEATURED = ['blocks', 'critters', 'hockey'];
+  const TINT = { blocks: '#3a3170', critters: '#c9ecff', hockey: '#dcefff', plane: '#e4efff', flip: '#ffe6d1', stack: '#fff0c2', keepup: '#d6f2ff' };
+  // Games that draw their own scoreboard: the app hides its big score and the other player's chip.
+  const BARE_HUD = ['hockey'];
 
   const $ = s => document.querySelector(s);
   const el = (tag, cls, text) => {
@@ -179,7 +181,7 @@
       card.appendChild(row);
       card.onclick = () => openSheet(id);
       grid.appendChild(card);
-      if (id === FEATURED[FEATURED.length - 1]) grid.appendChild(el('div', 'more', 'More games'));
+      if (id === FEATURED.filter(f => Arcade.games[f]).pop()) grid.appendChild(el('div', 'more', 'More games'));
     }
   }
   function toLobby() {
@@ -326,6 +328,7 @@
     lastGame = m.game;
     const id = m.id, duo = m.mode === 'duo';
     show('play');
+    $('#play').classList.toggle('bare', BARE_HUD.includes(m.game));
     Net.setState({ status: 'playing', game: m.game });
     $('#my-score').textContent = '0';
     $('#out').classList.remove('on');
@@ -405,14 +408,21 @@
       $('#opp-score').textContent = match.oppLeft ? '–' : match.opp;
       $('#opp-tag').textContent = match.oppLeft ? 'left' : match.oppDone ? 'out' : '';
     } else {
-      chip.className = 'opp solo';
-      $('#opp-name').textContent = 'Best';
-      $('#opp-score').textContent = (bests[match.game] || {})[me] || 0;
-      $('#opp-tag').textContent = '';
+      // Solo: show the other player's best (the score to beat), with mine as the tag.
+      const b = bests[match.game] || {};
+      const theirs = b[other()] || 0, mine = b[me] || 0;
+      chip.className = 'opp ' + colorOf(other());
+      $('#opp-name').textContent = other();
+      $('#opp-score').textContent = theirs;
+      $('#opp-tag').textContent = 'You ' + mine;
     }
     const target = $('#target');
+    const theirBest = (bests[match.game] || {})[other()] || 0;
     if (duo && match.oppDone && !match.oppLeft && !match.myDone && !isVersus()) {
       target.textContent = match.my > match.opp ? 'In the lead' : 'Beat ' + match.opp;
+      target.classList.add('on');
+    } else if (!duo && theirBest > 0 && !match.myDone) {
+      target.textContent = match.my > theirBest ? 'You beat ' + other() + "'s best!" : other() + "'s best: " + theirBest;
       target.classList.add('on');
     } else {
       target.classList.remove('on');
