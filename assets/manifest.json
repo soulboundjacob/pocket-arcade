@@ -208,6 +208,55 @@
       "file": "thumb_fort.png",
       "w": 150,
       "h": 100
+    },
+    "critter_blue": {
+      "file": "critter_blue.png",
+      "w": 24,
+      "h": 24,
+      "ax": 0.5,
+      "ay": 0.915
+    },
+    "critter_pink": {
+      "file": "critter_pink.png",
+      "w": 24,
+      "h": 24,
+      "ax": 0.5,
+      "ay": 0.915
+    },
+    "shot_rocket": {
+      "file": "shot_rocket.png",
+      "w": 20,
+      "h": 10
+    },
+    "shot_grenade": {
+      "file": "shot_grenade.png",
+      "w": 12,
+      "h": 12
+    },
+    "shot_cluster": {
+      "file": "shot_cluster.png",
+      "w": 14,
+      "h": 14
+    },
+    "tex_soil": {
+      "file": "tex_soil.png",
+      "w": 64,
+      "h": 64
+    },
+    "tex_grass": {
+      "file": "tex_grass.png",
+      "w": 64,
+      "h": 12
+    },
+    "bg_island": {
+      "file": "bg_island.png",
+      "w": 360,
+      "h": 640
+    },
+    "thumb_critters": {
+      "file": "thumb_critters.png",
+      "w": 150,
+      "h": 100
     }
   }
 }

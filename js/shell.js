@@ -4,9 +4,10 @@
 
   const STYLE = window.ARCADE_STYLE || 'clay';
   const PLAYERS = { Jacob: 'blue', Laura: 'pink' };
-  const GAMES = ['blocks', 'fort', 'plane', 'flip', 'stack', 'keepup'];
-  const FEATURED = ['blocks', 'fort'];
-  const TINT = { blocks: '#3a3170', fort: '#bfe3ff', plane: '#e4efff', flip: '#ffe6d1', stack: '#fff0c2', keepup: '#d6f2ff' };
+  // fort.js (Fort Blast) stays in the repo but is off the menu: Jacob preferred the critter take.
+  const GAMES = ['blocks', 'critters', 'plane', 'flip', 'stack', 'keepup'];
+  const FEATURED = ['blocks', 'critters'];
+  const TINT = { blocks: '#3a3170', critters: '#c9ecff', plane: '#e4efff', flip: '#ffe6d1', stack: '#fff0c2', keepup: '#d6f2ff' };
 
   const $ = s => document.querySelector(s);
   const el = (tag, cls, text) => {
