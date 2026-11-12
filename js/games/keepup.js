@@ -8,6 +8,9 @@
   const REACH = 72;      // a tap this close to a ball's center counts
   const G0 = 1050, G_PER_BOP = 20, G_MAX = 1900;
   const SECOND_BALL_AT = 12, THIRD_BALL_AT = 30;
+  // A ball must fall this far from the top of its arc before it can be tapped again
+  // (stops tapping it endlessly at the top of the screen).
+  const MIN_DROP = 140, TAP_MIN_Y = 180;   // and it must be in the lower part of the screen
   const WIND_FROM = 5, WIND_EVERY = 3;
   const windMax = t => Math.min(320, 110 + t * 4);   // gusts get stronger the longer you last
 
@@ -17,31 +20,39 @@
     blurb: 'Tap the ball. Keep it off the sand.',
     init(api) {
       const W = api.W;
-      const newBall = (x, y, vy) => ({ x, y, vx: 0, vy, rot: 0, spin: 0.6, squash: 0 });
+      const newBall = (x, y, vy) => ({ x, y, vx: 0, vy, rot: 0, spin: 0.6, squash: 0, apexY: y });
       const balls = [newBall(120 + api.rng() * 120, 320, -560)];
       let grav = G0, score = 0, dead = false, t = 0;
       // Wind runs on a fixed, seeded schedule so both phones get the same gusts at the same time.
       // (Nothing skill-dependent may draw from api.rng, or the two phones' gusts would drift apart.)
       let wind = 0, windTarget = 0, nextGust = WIND_FROM;
       const rings = [], dust = [], streaks = [];
-      let hint = 1, newBallBanner = 0;
+      let hint = 1, newBallBanner = 0, early = null;   // early: {x, y, t} 'Let it drop' note
 
       function ceiling() { return Math.max(api.view.y0, -80) + R; }
 
       function bop(x, y) {
         // the closest ball in reach that is falling or near the top of its arc
-        let best = null, bestD = REACH * REACH;
+        let best = null, bestD = REACH * REACH, tooEarly = null;
         for (const b of balls) {
           const dx = b.x - x, dy = b.y - y, d = dx * dx + dy * dy;
-          if (d <= bestD && b.vy > -150) { best = b; bestD = d; }
+          if (d > REACH * REACH) continue;
+          if (b.vy > -150 && b.y - b.apexY >= MIN_DROP && b.y > TAP_MIN_Y) {
+            if (d <= bestD) { best = b; bestD = d; }
+          } else tooEarly = b;
         }
-        if (!best) { rings.push({ x, y, t: 0, hit: false }); return; }
+        if (!best) {
+          rings.push({ x, y, t: 0, hit: false });
+          if (tooEarly) early = { x: tooEarly.x, y: tooEarly.y - R - 12, t: 0 };
+          return;
+        }
         const dx = best.x - x;
         const room = Math.max(110, Math.min(APEX, best.y - ceiling() - 20));
         best.vy = -Math.sqrt(2 * grav * room);
         best.vx = Math.max(-320, Math.min(320, dx * 7));
         best.spin = best.vx / R;
         best.squash = 1;
+        best.apexY = best.y;   // it must climb and fall MIN_DROP again before the next tap counts
         score++;
         api.score(score);
         grav = Math.min(G_MAX, G0 + score * G_PER_BOP);
@@ -78,7 +89,9 @@
           if (hint < 1) hint = Math.max(0, hint - dt * 2);
           newBallBanner = Math.max(0, newBallBanner - dt);
 
+          if (early) { early.t += dt; if (early.t > 0.7) early = null; }
           for (const b of balls) {
+            if (b.y < b.apexY) b.apexY = b.y;
             if (!dead) {
               b.vy += grav * dt;
               b.vx += wind * dt;
@@ -210,6 +223,16 @@
             g.font = '800 22px ui-rounded, system-ui, sans-serif';
             g.fillStyle = '#2b2522';
             g.fillText('Tap the ball', 180, 140);
+            g.globalAlpha = 1;
+          }
+          if (early) {
+            g.globalAlpha = Math.max(0, 1 - early.t / 0.7);
+            g.font = '800 15px ui-rounded, system-ui, sans-serif';
+            g.lineWidth = 4;
+            g.strokeStyle = 'rgba(43,37,34,0.8)';
+            g.strokeText('Let it drop', early.x, early.y);
+            g.fillStyle = '#fff';
+            g.fillText('Let it drop', early.x, early.y);
             g.globalAlpha = 1;
           }
           if (newBallBanner > 0) {
