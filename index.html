@@ -217,6 +217,35 @@
   #out-me { font-weight: 700; font-size: 22px; }
   #out-opp { margin-top: 4px; color: var(--muted); font-weight: 600; font-size: 17px; }
 
+  /* lobby sideways: featured games side by side, the rest in one row */
+  @media (orientation: landscape) and (min-width: 600px) {
+    .wrap { max-width: 900px; }
+    .grid { grid-template-columns: repeat(4, 1fr); }
+    .card.featured { grid-column: span 2; }
+    .card.featured .art { aspect-ratio: 2.4 / 1; }
+    #who, #lobby, #results { padding-left: calc(16px + env(safe-area-inset-left)); padding-right: calc(16px + env(safe-area-inset-right)); }
+  }
+
+  /* ---------- landscape games */
+  .rotate {
+    position: fixed; inset: 0; z-index: 25; display: none; align-items: center; justify-content: center;
+    background: rgba(43,37,34,0.82); color: #fff;
+  }
+  .rotate.on { display: flex; }
+  .rotate-card { text-align: center; }
+  .rotate-phone {
+    width: 46px; height: 80px; margin: 0 auto 18px; border: 4px solid #fff; border-radius: 10px;
+    animation: turn 1.6s ease-in-out infinite;
+  }
+  @keyframes turn { 0%, 20% { transform: rotate(0deg); } 55%, 100% { transform: rotate(-90deg); } }
+  .rotate-text { font-weight: 700; font-size: 22px; }
+  @media (orientation: landscape) {
+    .hud { padding: 0 calc(12px + env(safe-area-inset-right)) 0 calc(12px + env(safe-area-inset-left)); top: 6px; }
+    .my-score { font-size: 40px; }
+    .quit, .opp { height: 36px; }
+    .countdown { top: 30%; font-size: 96px; }
+  }
+
   /* ---------- results */
   .res { max-width: 440px; margin: 0 auto; min-height: 100%; display: flex; flex-direction: column; justify-content: center; gap: 12px; }
   .res-game { text-align: center; color: var(--muted); font-weight: 600; font-size: 17px; }
@@ -315,20 +344,21 @@
   <button id="btn-decline" class="btn">Not now</button>
 </div></div>
 
+<div id="rotate" class="rotate"><div class="rotate-card"><div class="rotate-phone"></div><div class="rotate-text">Turn your phone sideways</div></div></div>
 <div id="toast" class="toast"></div>
 <div id="conn" class="conn">Reconnecting…</div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"></script>
-<script>window.ARCADE_STYLE = "toon"; window.ARCADE_VERSION = "20261112113327";</script>
-<script src="js/config.js?v=20261112113327"></script>
-<script src="js/engine.js?v=20261112113327"></script>
-<script src="js/games/blocks.js?v=20261112113327"></script>
-<script src="js/games/critters.js?v=20261112113327"></script>
-<script src="js/games/plane.js?v=20261112113327"></script>
-<script src="js/games/flip.js?v=20261112113327"></script>
-<script src="js/games/stack.js?v=20261112113327"></script>
-<script src="js/games/keepup.js?v=20261112113327"></script>
-<script src="js/net.js?v=20261112113327"></script>
-<script src="js/shell.js?v=20261112113327"></script>
+<script>window.ARCADE_STYLE = "toon"; window.ARCADE_VERSION = "20261112114248";</script>
+<script src="js/config.js?v=20261112114248"></script>
+<script src="js/engine.js?v=20261112114248"></script>
+<script src="js/games/blocks.js?v=20261112114248"></script>
+<script src="js/games/critters.js?v=20261112114248"></script>
+<script src="js/games/plane.js?v=20261112114248"></script>
+<script src="js/games/flip.js?v=20261112114248"></script>
+<script src="js/games/stack.js?v=20261112114248"></script>
+<script src="js/games/keepup.js?v=20261112114248"></script>
+<script src="js/net.js?v=20261112114248"></script>
+<script src="js/shell.js?v=20261112114248"></script>
 </body>
 </html>

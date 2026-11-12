@@ -38,7 +38,8 @@
  */
 (function (root) {
   'use strict';
-  const W = 360, H = 640, STEP = 1 / 120;
+  const WORLD_W = 360, WORLD_H = 640, STEP = 1 / 120;
+  const W = WORLD_W, H = WORLD_H;
   const games = {};
   const order = [];
 
@@ -120,6 +121,8 @@
     // opts: {canvas, game, seed, me, opp, onScore(n), onOver(score), onGhost(obj), getGhost()}
     const def = games[opts.game];
     if (!def) throw new Error('unknown game ' + opts.game);
+    // def.world = {w, h} lets a game use its own logical size (e.g. landscape 640x360).
+    const W = (def.world && def.world.w) || WORLD_W, H = (def.world && def.world.h) || WORLD_H;
     const canvas = opts.canvas;
     const g = canvas.getContext('2d');
     let dpr = 1, s = 1, ox = 0, oy = 0;
@@ -128,7 +131,8 @@
       dpr = Math.min(window.devicePixelRatio || 1, 3);
       const cw = canvas.clientWidth || window.innerWidth, ch = canvas.clientHeight || window.innerHeight;
       // reserveBottom: CSS px kept free of gameplay (Safari's floating address bar sits there).
-      const usable = Math.max(200, ch - (opts.reserveBottom || 0));
+      const rb = typeof opts.reserveBottom === 'function' ? opts.reserveBottom() : (opts.reserveBottom || 0);
+      const usable = Math.max(200, ch - rb);
       canvas.width = Math.round(cw * dpr);
       canvas.height = Math.round(ch * dpr);
       s = Math.min(cw / W, usable / H);

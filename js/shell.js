@@ -66,7 +66,16 @@
     screen = name;
     for (const s of document.querySelectorAll('.screen')) s.classList.toggle('on', s.id === name);
     document.body.dataset.screen = name;
+    updateRotate();
   }
+  // Landscape games (def.landscape) ask for the phone to be turned sideways.
+  function updateRotate() {
+    const def = typeof match !== 'undefined' && match && Arcade.games[match.game];
+    const need = !!(def && def.landscape && screen === 'play' && innerHeight > innerWidth);
+    $('#rotate').classList.toggle('on', need);
+  }
+  addEventListener('resize', () => updateRotate());
+  addEventListener('orientationchange', () => setTimeout(updateRotate, 200));
   function overlay(id, on) { $('#' + id).classList.toggle('on', on); }
   let toastTimer = 0;
   function toast(text) {
@@ -327,7 +336,9 @@
     await Promise.race([spritesReady, new Promise(r => setTimeout(r, 2500))]);
     if (!match || match.id !== id) return;
     runner = Arcade.run({
-      canvas, game: m.game, seed: m.seed, reserveBottom: RESERVE,
+      canvas, game: m.game, seed: m.seed,
+      // Safari's floating bar only covers the bottom when the phone is upright.
+      reserveBottom: () => (innerWidth < innerHeight ? RESERVE : 0),
       me: { name: me, color: colorOf(me) },
       opp: duo ? { name: other(), color: colorOf(other()) } : null,
       onScore: n => {

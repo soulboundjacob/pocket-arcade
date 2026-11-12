@@ -211,17 +211,17 @@
     },
     "critter_blue": {
       "file": "critter_blue.png",
-      "w": 24,
-      "h": 24,
+      "w": 32,
+      "h": 32,
       "ax": 0.5,
-      "ay": 0.915
+      "ay": 0.95
     },
     "critter_pink": {
       "file": "critter_pink.png",
-      "w": 24,
-      "h": 24,
+      "w": 32,
+      "h": 32,
       "ax": 0.5,
-      "ay": 0.915
+      "ay": 0.95
     },
     "shot_rocket": {
       "file": "shot_rocket.png",
@@ -257,6 +257,11 @@
       "file": "thumb_critters.png",
       "w": 150,
       "h": 100
+    },
+    "bg_island_wide": {
+      "file": "bg_island_wide.png",
+      "w": 640,
+      "h": 360
     }
   }
 }

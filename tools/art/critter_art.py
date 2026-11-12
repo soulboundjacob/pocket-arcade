@@ -124,20 +124,21 @@ def frame_critter(team, v):
     # camera shift y: centre of frame in z; frame bottom = -(pad + 2*outline) logical
     return
 
-def render_critter(team, v, path, px=72):
+def render_critter(team, v, path, px=72, units=24, bottom=-2.0):
+    # 3 px per logical unit. frame bottom sits at logical z=`bottom` (outer outline edge of the soles is at -2).
     A.clear(); build_critter(team, v)
     A.lights(); A.setup(px, px)
-    cam_z = 10.0 * L       # outline is 2 units thick; soles outer edge at -2 -> pad 1.2 below that
-    A.make_cam(0, 24 * L, (-0.5 * L, cam_z))
+    A.make_cam(0, units * L, (-0.5 * L, (bottom + units / 2) * L))
     A.render(path)
 
 def critters():
     for team in ('blue', 'pink'):
         if A.ONLY and 'critter_' + team not in A.ONLY: continue
-        render_critter(team, CHOSEN, f'{OUT}/critter_{team}.png')
+        render_critter(team, CHOSEN, f'{OUT}/critter_{team}.png', px=96, units=32, bottom=CRITTER_BOTTOM)
         print('critter', team)
 
 CHOSEN = 'a'
+CRITTER_BOTTOM = -1.6   # 32x32 frame, anchor ay 0.95: sole z=0 sits 1.6 units above the bottom
 
 def variants():
     paths = []
@@ -381,6 +382,44 @@ def b_island_bg():
         sph('wv', 1.0, (x, 0.3, z), m, sc=(w, 0.02, h), outline=False, seg=24, rings=10)
         sph('wv2', 1.0, (x + w * 0.7, 0.3, z - h * 2.6), m, sc=(w * 0.55, 0.02, h * 0.9), outline=False, seg=24, rings=10)
 
+def b_island_bg_wide():
+    HZ = 1.10     # logical y 250 of 360 (row 750 of 1080)
+    X0, X1 = -0.3, 6.7
+    A.bgplane('sky', X0, X1, HZ - 0.05, 3.9, 3.0, A.sky_mat())
+    sph = A.sph
+    sph('sun', 0.20, (5.9, 2.0, 2.6), A.mat('f_sun', '#FFE066'), sc=(1, 0.3, 1), seg=48, rings=24)
+    def cloud(cx, cz, k=1.0):
+        for dx, dz, r in ((-0.26, -0.02, 0.10), (-0.12, 0.05, 0.15), (0.05, 0.09, 0.19), (0.24, 0.02, 0.15), (0.38, -0.03, 0.10), (0.05, -0.06, 0.13)):
+            sph('c', r * k, (cx + dx * k, 1.6, cz + dz * k), A.F('cloud'), sc=(1, 0.35, 0.92), seg=36, rings=18)
+    cloud(0.9, 2.5, 1.0); cloud(2.0, 1.95, 0.5); cloud(3.4, 2.65, 0.55); cloud(5.0, 2.05, 0.8); cloud(6.1, 1.7, 0.45)
+    # far islands: grass mounds with a bit of beach, bottoms hidden by the sea
+    def islet(x, rx, rz, tree=False):
+        sph('is_soil', 1.0, (x, 1.0, HZ - 0.02), A.F('soil_l'), sc=(rx * 1.04, 0.2, rz * 0.78), seg=48, rings=24)
+        sph('is_grass', 1.0, (x, 0.95, HZ + 0.0), A.F('grass'), sc=(rx, 0.2, rz), seg=48, rings=24)
+        sph('is_hi', 1.0, (x - rx * 0.18, 0.9, HZ + rz * 0.22), A.F('grass_l'), sc=(rx * 0.55, 0.2, rz * 0.5), outline=False, seg=32, rings=16)
+    islet(0.7, 0.30, 0.15); islet(1.6, 0.16, 0.085); islet(4.9, 0.22, 0.12); islet(5.75, 0.14, 0.07)
+    # the sea, flat plane from the horizon down, with a hairline lighter edge
+    A.bgplane('sea', X0, X1, -0.3, HZ, 0.4, sea_mat())
+    A.bgplane('horizon_line', X0, X1, HZ - 0.012, HZ, 0.39, C('hz', '#BDEFF5'))
+    import random
+    rnd = random.Random(8)
+    light = C('wave_l', '#9DE6F2'); deep = C('wave_d', '#1A72B8'); foam = C('wave_f', '#E8FBFF')
+    for i in range(84):
+        t = rnd.random() ** 0.9                      # 0 at horizon, 1 at bottom
+        z = HZ - 0.06 - t * (HZ - 0.05)
+        x = rnd.uniform(0.0, 6.4)
+        w = 0.05 + 0.20 * t * rnd.uniform(0.6, 1.1)
+        h = 0.007 + 0.012 * t
+        m = foam if i % 3 == 0 else (light if i % 3 == 1 else deep)
+        sph('wv', 1.0, (x, 0.3, z), m, sc=(w, 0.02, h), outline=False, seg=24, rings=10)
+        sph('wv2', 1.0, (x + w * 0.7, 0.3, z - h * 2.6), m, sc=(w * 0.55, 0.02, h * 0.9), outline=False, seg=24, rings=10)
+
+def bg_wide():
+    if A.ONLY and 'bg_island_wide' not in A.ONLY: return
+    A.clear(); b_island_bg_wide(); A.lights(); A.setup(1920, 1080, opaque=True)
+    A.make_cam(0, 6.4, (3.2, 1.8))
+    A.render(f'{OUT}/bg_island_wide.png'); print('bg_island_wide')
+
 def bg():
     if A.ONLY and 'bg_island' not in A.ONLY: return
     A.clear(); b_island_bg(); A.lights(); A.setup(1080, 1920, opaque=True)
@@ -495,4 +534,5 @@ if __name__ == '__main__':
     if 'tex' in T: soil(); grass(); tiles()
     if 'tiles' in T: tiles()
     if 'bg' in T: bg()
+    if 'bgwide' in T: bg_wide()
     if 'thumb' in T: thumb()
