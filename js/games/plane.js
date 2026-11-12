@@ -3,14 +3,16 @@
   'use strict';
 
   const PX = 100;            // plane x (fixed)
-  const TAP_VY = -460;       // flap impulse
-  const GRAV = 1500, MAX_FALL = 700;
+  const TAP_VY = -500;       // flap impulse
+  const GRAV = 1750, MAX_FALL = 760;
   const R = 13;              // collision circle radius (sprite is ~30 tall, so this is forgiving)
-  const SPACING = 210;       // distance between pairs
-  const FIRST_AT = 2.0;      // seconds until the first pair reaches the plane
-  const SPEED0 = 150, SPEED_PER = 2, SPEED_MAX = 220;
-  const GAP0 = 190, GAP_SHRINK = 3, GAP_MIN = 140;
-  const CY_MIN = 150, CY_MAX = 490, CY_STEP = 170;   // gap centre range / max change between pairs
+  const SPACING = 195;       // distance between pairs
+  const FIRST_AT = 1.6;      // seconds until the first pair reaches the plane
+  // Tuned 2026-11-12 after "too easy/slow": faster start, steeper ramp, tighter gaps.
+  const SPEED0 = 185, SPEED_PER = 3, SPEED_MAX = 270;
+  const GAP0 = 170, GAP_SHRINK = 2.5, GAP_MIN = 128;
+  const CY_MIN = 150, CY_MAX = 490, CY_STEP = 175;
+  const BOB_FROM = 10;       // from this pair on, some pencil pairs slide up and down   // gap centre range / max change between pairs
   const BODY_HW = 22;        // pencil body half width (sprite is 56 wide; 44 is forgiving)
   const TIP_LEN = 40, TIP_HW = 7;   // pencil tip: narrow rect, so grazing the point is safe
   const FONT = '800 28px ui-rounded, system-ui, sans-serif';
@@ -49,8 +51,10 @@
         const lo = Math.max(CY_MIN, lastCy - CY_STEP), hi = Math.min(CY_MAX, lastCy + CY_STEP);
         const cy = lo + api.rng() * (hi - lo);
         const h = Math.max(GAP_MIN, GAP0 - GAP_SHRINK * made);
+        const r1 = api.rng(), r2 = api.rng();   // always drawn, so the sequence stays in step
+        const amp = made >= BOB_FROM && r1 < 0.5 ? 16 + r1 * 36 : 0;
         lastCy = cy; made++;
-        pairs.push({ x, cy, h, scored: false });
+        pairs.push({ x, cy, cyNow: cy, h, amp, ph: r2 * 6.283, w: 1.2 + r2 * 0.9, scored: false });
       }
 
       function burst(x, yy, n, cols, sp, life) {
@@ -72,7 +76,7 @@
       function collides() {
         for (const p of pairs) {
           if (p.x > PX + 60 || p.x < PX - 60) continue;
-          const gt = p.cy - p.h / 2, gb = p.cy + p.h / 2;
+          const gt = p.cyNow - p.h / 2, gb = p.cyNow + p.h / 2;
           // bottom pencil: tip at gb pointing up, body going down
           if (hitRect(PX, y, p.x - TIP_HW, gb, p.x + TIP_HW, gb + TIP_LEN)) return true;
           if (hitRect(PX, y, p.x - BODY_HW, gb + TIP_LEN, p.x + BODY_HW, gb + 600)) return true;
@@ -109,7 +113,10 @@
         // waits for its first tap, hovering until then.
         const sp = speed();
         bgScroll += sp * dt * 0.3;
-        for (const p of pairs) p.x -= sp * dt;
+        for (const p of pairs) {
+          p.x -= sp * dt;
+          p.cyNow = p.amp ? Math.max(CY_MIN - 40, Math.min(CY_MAX + 40, p.cy + p.amp * Math.sin(p.ph + simT * p.w))) : p.cy;
+        }
         while (pairs.length && pairs[0].x < -80) pairs.shift();
         while (made === 0 || pairs[pairs.length - 1].x + SPACING < view.x1 + 100) {
           makePair(made === 0 ? PX + SPEED0 * FIRST_AT : pairs[pairs.length - 1].x + SPACING);
@@ -173,7 +180,7 @@
         if (shake > 0) g.translate((Math.random() - 0.5) * shake * 18, (Math.random() - 0.5) * shake * 18);
         bg(g);
         for (const p of pairs) {
-          const gt = p.cy - p.h / 2, gb = p.cy + p.h / 2;
+          const gt = p.cyNow - p.h / 2, gb = p.cyNow + p.h / 2;
           api.draw(g, 'pencil', p.x, gb, {});
           api.draw(g, 'pencil', p.x, gt, { flipY: true });
         }

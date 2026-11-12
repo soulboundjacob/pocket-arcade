@@ -8,7 +8,7 @@
   const BASE_Y = 525;            // world y of the first pancake's centre (sits on the plate)
   const PLATE = { x: 180, y: 555 };
   const HOVER = 205;             // slider sits this far above the stack top
-  const SPEED0 = 110, SPEED_PER = 4, SPEED_MAX = 300;    // reaches the cap at layer 48
+  const SPEED0 = 135, SPEED_PER = 5, SPEED_MAX = 340;    // gradual: reaches the cap at layer 41
   const FALL_G = 7000, FALL_MAX = 1500;                   // ~0.23 s drop from the hover height
   const SNAP = 4;                // offset under this = Perfect (snaps)
   const REGROW = 10, REGROW_EVERY = 3;

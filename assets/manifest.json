@@ -150,6 +150,64 @@
       "file": "thumb_blocks.png",
       "w": 150,
       "h": 100
+    },
+    "cannon_base": {
+      "file": "cannon_base.png",
+      "w": 40,
+      "h": 28,
+      "ax": 0.5,
+      "ay": 1.0
+    },
+    "cannon_barrel": {
+      "file": "cannon_barrel.png",
+      "w": 40,
+      "h": 18,
+      "ax": 0.2,
+      "ay": 0.5
+    },
+    "crown": {
+      "file": "crown.png",
+      "w": 26,
+      "h": 20
+    },
+    "shot_ball": {
+      "file": "shot_ball.png",
+      "w": 12,
+      "h": 12
+    },
+    "shot_drill": {
+      "file": "shot_drill.png",
+      "w": 22,
+      "h": 12
+    },
+    "moon": {
+      "file": "moon.png",
+      "w": 64,
+      "h": 64
+    },
+    "flag_blue": {
+      "file": "flag_blue.png",
+      "w": 16,
+      "h": 24,
+      "ax": 0.2,
+      "ay": 1.0
+    },
+    "flag_pink": {
+      "file": "flag_pink.png",
+      "w": 16,
+      "h": 24,
+      "ax": 0.2,
+      "ay": 1.0
+    },
+    "bg_fort": {
+      "file": "bg_fort.png",
+      "w": 360,
+      "h": 640
+    },
+    "thumb_fort": {
+      "file": "thumb_fort.png",
+      "w": 150,
+      "h": 100
     }
   }
 }

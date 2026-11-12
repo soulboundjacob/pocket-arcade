@@ -159,6 +159,10 @@
       // Versus games: send a message to the other phone's copy of this game (arrives in
       // its receive(type, data)). Only while playing.
       send(type, data) { if (state === 'play' && opts.onSend) opts.onSend(type, data); },
+      // The other phone's latest ghost() object (or null), for games that sync through it.
+      peer: () => (opts.getGhost ? opts.getGhost() : null),
+      // auto: the game plays my side by itself (test bots); games may ignore it.
+      auto: !!opts.auto,
     };
     const inst = def.init(api);
     function sendGhost() {
@@ -236,6 +240,7 @@
       get state() { return state; },
       get score() { return score; },
       get time() { return simT; },
+      get inst() { return inst; },   // for dev pages and debugging
       get overFor() { return overT; },
     };
   }

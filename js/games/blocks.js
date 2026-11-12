@@ -8,7 +8,11 @@
   const COLS = 9, ROWS = 16, CELL = 30;
   const BX = 14, BY = 112, BW = COLS * CELL, BH = ROWS * CELL;
   const BTN = { x: 294, y: 300, w: 58, h: 72 };
-  const MINI = { x: 294, y: 420, c: 6 };
+  const MINI = { x: 296, y: 312, c: 6 };
+  // Power-up slots, side by side under the board: tap the one you want to use.
+  const MAX_POWERS = 3;
+  const SLOT = { y: BY + BH + 6, h: 38, w: 84, gap: 9 };
+  const slotX = i => BX + i * (SLOT.w + SLOT.gap);
   const FONT = 'ui-rounded, system-ui, sans-serif';
 
   const LOCK_DELAY = 0.5, MAX_RESETS = 12;
@@ -75,8 +79,8 @@
       let clock = 0, gravAcc = 0, lockT = 0, resets = 0;
       let rushT = 0, slowT = 0;
       let pending = 0;
-      const powers = [];           // stored power-ups, oldest first (max 2)
-      let touch = null, btnDown = false;
+      const powers = [];           // stored power-ups, oldest first (max MAX_POWERS)
+      let touch = null, btnDown = -1;   // btnDown: index of the slot being pressed
       const parts = [], banners = [], flashes = [], trails = [];
       let shake = 0;
       const dots = [];
@@ -177,7 +181,7 @@
 
       function die() {
         if (dead) return;
-        dead = true; deadT = 0; touch = null; btnDown = false;
+        dead = true; deadT = 0; touch = null; btnDown = -1;
         shake = 0.4;
         burst(BX + BW / 2, BY + BH / 2, 24, ['#fff', '#ff8a8a', '#ffd27a'], 260, 0.8);
         if (!overSent) { overSent = true; api.over(); }
@@ -218,7 +222,7 @@
           for (const r of full) {
             for (const cell of grid[r]) {
               if (cell && cell.p) {
-                if (powers.length < 2) { powers.push(cell.p); banner(POWER_NAME[cell.p] + ' ready'); }
+                if (powers.length < MAX_POWERS) { powers.push(cell.p); banner(POWER_NAME[cell.p] + ' ready'); }
                 else addScore(200);
               }
             }
@@ -266,9 +270,9 @@
         lockPiece();
       }
 
-      function usePower() {
-        if (dead || !powers.length) return;
-        const p = powers.shift();
+      function usePower(i) {
+        if (dead || i < 0 || i >= powers.length) return;
+        const p = powers.splice(i, 1)[0];
         if (p === 'bomb') {
           grid.splice(ROWS - 3, 3);
           for (let i = 0; i < 3; i++) grid.unshift(new Array(COLS).fill(null));
@@ -281,12 +285,17 @@
       }
 
       // ---------- input
-      function inBtn(x, y) { return x >= BTN.x && x <= BTN.x + BTN.w && y >= BTN.y && y <= BTN.y + BTN.h; }
+      function slotAt(x, y) {
+        if (y < SLOT.y - 6 || y > SLOT.y + SLOT.h + 10) return -1;
+        for (let i = 0; i < powers.length; i++) if (x >= slotX(i) - 4 && x <= slotX(i) + SLOT.w + 4) return i;
+        return -1;
+      }
 
       function down(x, y) {
         if (dead) return;
-        if (inBtn(x, y)) { btnDown = true; touch = null; return; }
-        btnDown = false;
+        const si = slotAt(x, y);
+        if (si >= 0) { btnDown = si; touch = null; return; }
+        btnDown = -1;
         if (!piece) return;
         touch = { sx: x, sy: y, t: clock, col: piece.x, mx: 0, my: 0, soft: 0, softOn: false };
       }
@@ -308,7 +317,7 @@
         }
       }
       function up(x, y) {
-        if (btnDown) { btnDown = false; if (inBtn(x, y)) usePower(); return; }
+        if (btnDown >= 0) { const i = btnDown; btnDown = -1; if (slotAt(x, y) === i) usePower(i); return; }
         if (!touch) return;
         const t = touch; touch = null;
         if (dead || !piece) return;
@@ -475,7 +484,7 @@
         if (rushT > 0) text(g, 'Rush ' + Math.ceil(rushT) + 's', ex, 104, 13, '#ff8a7a', 'right', 800);
 
         // hint for the first pieces
-        if (spawned <= 3 && !dead) {
+        if (spawned <= 3 && !dead && !powers.length) {
           text(g, 'Drag to move · Tap to turn · Flick down to drop', BX + BW / 2, BY + BH + 20, 13, 'rgba(255,255,255,0.7)', 'center', 600);
         }
 
@@ -511,30 +520,23 @@
         text(g, 'Lv ' + level(), BTN.x + BTN.w / 2, 246, 12, 'rgba(255,255,255,0.8)', 'center', 800);
         text(g, lines + ' lines', BTN.x + BTN.w / 2, 262, 11, 'rgba(255,255,255,0.6)', 'center', 600);
 
-        // power button
-        const has = powers.length > 0;
-        const glow = has ? 0.5 + 0.5 * Math.sin(clock * 6) : 0;
-        g.fillStyle = has ? 'rgba(60,40,120,0.85)' : 'rgba(15,12,35,0.55)';
-        rrect(g, BTN.x, BTN.y, BTN.w, BTN.h, 12); g.fill();
-        if (has) {
-          g.strokeStyle = 'rgba(255,226,122,' + (0.25 + 0.2 * glow).toFixed(2) + ')'; g.lineWidth = 7;
-          rrect(g, BTN.x, BTN.y, BTN.w, BTN.h, 12); g.stroke();
-          g.strokeStyle = 'rgba(255,226,122,' + (0.6 + 0.4 * glow).toFixed(2) + ')'; g.lineWidth = 2;
-          rrect(g, BTN.x, BTN.y, BTN.w, BTN.h, 12); g.stroke();
-        } else {
-          g.strokeStyle = 'rgba(255,255,255,0.2)'; g.lineWidth = 1.5;
-          rrect(g, BTN.x, BTN.y, BTN.w, BTN.h, 12); g.stroke();
-        }
-        if (has) {
-          const sc = 1 + 0.06 * glow;
-          api.draw(g, 'icon_' + powers[0], BTN.x + BTN.w / 2, BTN.y + 31, { w: 44 * sc, h: 44 * sc });
-          text(g, POWER_NAME[powers[0]], BTN.x + BTN.w / 2, BTN.y + 62, 12, '#fff', 'center', 800);
-          if (powers.length > 1) {
-            g.fillStyle = '#ffe27a'; rrect(g, BTN.x + BTN.w - 22, BTN.y - 6, 26, 16, 8); g.fill();
-            text(g, 'x2', BTN.x + BTN.w - 9, BTN.y + 2, 11, '#2b2453', 'center', 800);
+        // power-up slots, side by side under the board (tap one to use it)
+        if (!(spawned <= 3 && !powers.length) || dead) {
+          const glow = 0.5 + 0.5 * Math.sin(clock * 6);
+          for (let i = 0; i < MAX_POWERS; i++) {
+            const x0 = slotX(i), p = powers[i], pressed = btnDown === i;
+            g.fillStyle = p ? (pressed ? 'rgba(90,64,170,0.95)' : 'rgba(60,40,120,0.85)') : 'rgba(15,12,35,0.45)';
+            rrect(g, x0, SLOT.y, SLOT.w, SLOT.h, 10); g.fill();
+            if (p) {
+              g.strokeStyle = 'rgba(255,226,122,' + (0.55 + 0.4 * glow).toFixed(2) + ')'; g.lineWidth = 2;
+              rrect(g, x0, SLOT.y, SLOT.w, SLOT.h, 10); g.stroke();
+              api.draw(g, 'icon_' + p, x0 + 21, SLOT.y + SLOT.h / 2, { w: 32, h: 32 });
+              text(g, POWER_NAME[p], x0 + 40, SLOT.y + SLOT.h / 2 + 4, 12, '#fff', 'left', 800);
+            } else {
+              g.strokeStyle = 'rgba(255,255,255,0.14)'; g.lineWidth = 1.5;
+              rrect(g, x0, SLOT.y, SLOT.w, SLOT.h, 10); g.stroke();
+            }
           }
-        } else {
-          text(g, 'Power', BTN.x + BTN.w / 2, BTN.y + BTN.h / 2, 12, 'rgba(255,255,255,0.4)', 'center', 700);
         }
 
         // opponent mini board

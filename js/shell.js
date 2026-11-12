@@ -4,9 +4,9 @@
 
   const STYLE = window.ARCADE_STYLE || 'clay';
   const PLAYERS = { Jacob: 'blue', Laura: 'pink' };
-  const GAMES = ['blocks', 'plane', 'flip', 'stack', 'keepup'];
-  const FEATURED = 'blocks';
-  const TINT = { blocks: '#3a3170', plane: '#e4efff', flip: '#ffe6d1', stack: '#fff0c2', keepup: '#d6f2ff' };
+  const GAMES = ['blocks', 'fort', 'plane', 'flip', 'stack', 'keepup'];
+  const FEATURED = ['blocks', 'fort'];
+  const TINT = { blocks: '#3a3170', fort: '#bfe3ff', plane: '#e4efff', flip: '#ffe6d1', stack: '#fff0c2', keepup: '#d6f2ff' };
 
   const $ = s => document.querySelector(s);
   const el = (tag, cls, text) => {
@@ -134,7 +134,7 @@
     for (const id of GAMES) {
       const def = Arcade.games[id];
       if (!def) continue;
-      const card = el('button', 'card' + (id === FEATURED ? ' featured' : ''));
+      const card = el('button', 'card' + (FEATURED.includes(id) ? ' featured' : ''));
       card.style.setProperty('--tint', TINT[id]);
       const art = el('div', 'art');
       const img = new Image();
@@ -155,7 +155,7 @@
       card.appendChild(row);
       card.onclick = () => openSheet(id);
       grid.appendChild(card);
-      if (id === FEATURED) grid.appendChild(el('div', 'more', 'More games'));
+      if (id === FEATURED[FEATURED.length - 1]) grid.appendChild(el('div', 'more', 'More games'));
     }
   }
   function toLobby() {

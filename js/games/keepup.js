@@ -1,11 +1,15 @@
-/* Beach Ball: tap the falling ball to bop it back up. Don't let it touch the sand. */
+/* Beach Ball: tap the falling ball to bop it back up. Don't let it touch the sand.
+ * At 12 bops a second ball drops in. Tuned 2026-11-12 after "too easy/slow". */
 (function () {
   'use strict';
   const R = 44;          // ball radius (sprite is 96 with a little padding)
   const SAND = 588;      // top edge of the sand
-  const APEX = 330;      // a bop sends the ball about this high above where it was hit
-  const REACH = 84;      // a tap this close to the ball's center counts
-  const G0 = 820, G_PER_BOP = 14, G_MAX = 1500;
+  const APEX = 300;      // a bop sends the ball about this high above where it was hit
+  const REACH = 72;      // a tap this close to a ball's center counts
+  const G0 = 1050, G_PER_BOP = 20, G_MAX = 1900;
+  const SECOND_BALL_AT = 12, THIRD_BALL_AT = 30;
+  const WIND_FROM = 5, WIND_EVERY = 3;
+  const windMax = t => Math.min(320, 110 + t * 4);   // gusts get stronger the longer you last
 
   Arcade.register({
     id: 'keepup',
@@ -13,79 +17,97 @@
     blurb: 'Tap the ball. Keep it off the sand.',
     init(api) {
       const W = api.W;
-      const ball = { x: 120 + api.rng() * 120, y: 320, vx: 0, vy: -560, rot: 0, spin: 0.6, squash: 0 };
+      const newBall = (x, y, vy) => ({ x, y, vx: 0, vy, rot: 0, spin: 0.6, squash: 0 });
+      const balls = [newBall(120 + api.rng() * 120, 320, -560)];
       let grav = G0, score = 0, dead = false, t = 0;
-      // Wind is on a fixed, seeded schedule so both phones get the same gusts at the same time.
-      let wind = 0, windTarget = 0, nextGust = 8;
+      // Wind runs on a fixed, seeded schedule so both phones get the same gusts at the same time.
+      // (Nothing skill-dependent may draw from api.rng, or the two phones' gusts would drift apart.)
+      let wind = 0, windTarget = 0, nextGust = WIND_FROM;
       const rings = [], dust = [], streaks = [];
-      let hint = 1;
+      let hint = 1, newBallBanner = 0;
 
       function ceiling() { return Math.max(api.view.y0, -80) + R; }
 
       function bop(x, y) {
-        const dx = ball.x - x, dy = ball.y - y;
-        if (dx * dx + dy * dy > REACH * REACH) { rings.push({ x, y, t: 0, hit: false }); return; }
-        // Only a ball that's falling (or at the top of its arc) can be bopped, so spam-tapping does nothing.
-        if (ball.vy < -150) { rings.push({ x, y, t: 0, hit: false }); return; }
-        const room = Math.max(120, Math.min(APEX, ball.y - ceiling() - 20));
-        ball.vy = -Math.sqrt(2 * grav * room);
-        ball.vx = Math.max(-300, Math.min(300, dx * 6.5));
-        ball.spin = ball.vx / R;
-        ball.squash = 1;
+        // the closest ball in reach that is falling or near the top of its arc
+        let best = null, bestD = REACH * REACH;
+        for (const b of balls) {
+          const dx = b.x - x, dy = b.y - y, d = dx * dx + dy * dy;
+          if (d <= bestD && b.vy > -150) { best = b; bestD = d; }
+        }
+        if (!best) { rings.push({ x, y, t: 0, hit: false }); return; }
+        const dx = best.x - x;
+        const room = Math.max(110, Math.min(APEX, best.y - ceiling() - 20));
+        best.vy = -Math.sqrt(2 * grav * room);
+        best.vx = Math.max(-320, Math.min(320, dx * 7));
+        best.spin = best.vx / R;
+        best.squash = 1;
         score++;
         api.score(score);
         grav = Math.min(G_MAX, G0 + score * G_PER_BOP);
         rings.push({ x, y, t: 0, hit: true });
         hint = Math.min(hint, 0.999);
+        if ((score === SECOND_BALL_AT && balls.length === 1) || (score === THIRD_BALL_AT && balls.length === 2)) {
+          // drop the next ball where the others aren't
+          const avg = balls.reduce((a, b) => a + b.x, 0) / balls.length;
+          // served in mid-air with a little lift, so it's catchable even at high gravity
+          balls.push(newBall(avg < W / 2 ? W - 90 : 90, 250, -320));
+          newBallBanner = 1.6;
+        }
+      }
+
+      function die(b) {
+        dead = true;
+        b.y = SAND - R;
+        b.vy = -Math.abs(b.vy) * 0.38;
+        b.vx *= 0.5;
+        for (let i = 0; i < 18; i++) {
+          dust.push({ x: b.x + (Math.random() - 0.5) * 50, y: SAND, vx: (Math.random() - 0.5) * 220, vy: -60 - Math.random() * 180, t: 0 });
+        }
+        api.over();
       }
 
       return {
         update(dt) {
           t += dt;
           if (t >= nextGust) {
-            windTarget = (api.rng() * 2 - 1) * 210;
-            nextGust += 4;
+            windTarget = (api.rng() * 2 - 1) * windMax(t);
+            nextGust += WIND_EVERY;
           }
-          wind += (windTarget - wind) * Math.min(1, dt * 1.5);
+          wind += (windTarget - wind) * Math.min(1, dt * 1.8);
           if (hint < 1) hint = Math.max(0, hint - dt * 2);
+          newBallBanner = Math.max(0, newBallBanner - dt);
 
-          if (!dead) {
-            ball.vy += grav * dt;
-            ball.vx += wind * dt;
-            ball.vx *= 1 - 0.15 * dt;
-            ball.x += ball.vx * dt;
-            ball.y += ball.vy * dt;
-            if (ball.x < R) { ball.x = R; ball.vx = Math.abs(ball.vx) * 0.8; ball.spin *= -0.6; }
-            if (ball.x > W - R) { ball.x = W - R; ball.vx = -Math.abs(ball.vx) * 0.8; ball.spin *= -0.6; }
-            const top = ceiling();
-            if (ball.y < top) { ball.y = top; ball.vy = Math.abs(ball.vy) * 0.4; }
-            if (ball.y + R >= SAND) {
-              dead = true;
-              ball.y = SAND - R;
-              ball.vy = -Math.abs(ball.vy) * 0.38;
-              ball.vx *= 0.5;
-              for (let i = 0; i < 18; i++) {
-                dust.push({ x: ball.x + (Math.random() - 0.5) * 50, y: SAND, vx: (Math.random() - 0.5) * 220, vy: -60 - Math.random() * 180, t: 0 });
+          for (const b of balls) {
+            if (!dead) {
+              b.vy += grav * dt;
+              b.vx += wind * dt;
+              b.vx *= 1 - 0.15 * dt;
+              b.x += b.vx * dt;
+              b.y += b.vy * dt;
+              if (b.x < R) { b.x = R; b.vx = Math.abs(b.vx) * 0.8; b.spin *= -0.6; }
+              if (b.x > W - R) { b.x = W - R; b.vx = -Math.abs(b.vx) * 0.8; b.spin *= -0.6; }
+              const top = ceiling();
+              if (b.y < top) { b.y = top; b.vy = Math.abs(b.vy) * 0.4; }
+              if (b.y + R >= SAND) die(b);
+            } else {
+              // settle into the sand
+              b.vy += 1600 * dt;
+              b.x += b.vx * dt;
+              b.y += b.vy * dt;
+              const floor = SAND + 8 - R;
+              if (b.y > floor) {
+                b.y = floor;
+                b.vy = Math.abs(b.vy) > 60 ? -Math.abs(b.vy) * 0.35 : 0;
+                b.vx *= 0.7;
+                b.spin *= 0.7;
               }
-              api.over();
+              b.x = Math.max(R, Math.min(W - R, b.x));
             }
-          } else {
-            // settle into the sand
-            ball.vy += 1600 * dt;
-            ball.x += ball.vx * dt;
-            ball.y += ball.vy * dt;
-            const floor = SAND + 8 - R;
-            if (ball.y > floor) {
-              ball.y = floor;
-              ball.vy = Math.abs(ball.vy) > 60 ? -Math.abs(ball.vy) * 0.35 : 0;
-              ball.vx *= 0.7;
-              ball.spin *= 0.7;
-            }
-            ball.x = Math.max(R, Math.min(W - R, ball.x));
+            b.rot += b.spin * dt;
+            b.spin *= 1 - 0.25 * dt;
+            b.squash = Math.max(0, b.squash - dt * 7);
           }
-          ball.rot += ball.spin * dt;
-          ball.spin *= 1 - 0.25 * dt;
-          ball.squash = Math.max(0, ball.squash - dt * 7);
 
           for (const r of rings) r.t += dt;
           while (rings.length && rings[0].t > 0.35) rings.shift();
@@ -135,28 +157,34 @@
           }
           g.globalAlpha = 1;
 
-          // shadow on the sand
-          const k = 1 - Math.min(1, Math.max(0, SAND - (ball.y + R)) / 520);
-          g.fillStyle = 'rgba(140, 95, 40,' + (0.1 + 0.2 * k).toFixed(3) + ')';
-          g.beginPath();
-          g.ellipse(ball.x, SAND + 10, R * (0.45 + 0.55 * k), 6 + 4 * k, 0, 0, Math.PI * 2);
-          g.fill();
+          // shadows on the sand
+          for (const b of balls) {
+            const k = 1 - Math.min(1, Math.max(0, SAND - (b.y + R)) / 520);
+            g.fillStyle = 'rgba(140, 95, 40,' + (0.1 + 0.2 * k).toFixed(3) + ')';
+            g.beginPath();
+            g.ellipse(b.x, SAND + 10, R * (0.45 + 0.55 * k), 6 + 4 * k, 0, 0, Math.PI * 2);
+            g.fill();
+          }
 
-          // the other player's ball
+          // the other player's balls
           if (ghost && api.opp && ghost.y != null) {
-            api.draw(g, 'ball', ghost.x, ghost.y, { alpha: ghost.a ? 0.38 : 0.2 });
+            const ghostBalls = [[ghost.x, ghost.y]];
+            if (ghost.x2 != null) ghostBalls.push([ghost.x2, ghost.y2]);
+            for (const [gx, gy] of ghostBalls) api.draw(g, 'ball', gx, gy, { alpha: ghost.a ? 0.38 : 0.2 });
             g.font = '700 13px ui-rounded, system-ui, sans-serif';
             g.textAlign = 'center';
             g.fillStyle = 'rgba(43,37,34,0.45)';
             g.fillText(api.opp.name, ghost.x, ghost.y - R - 8);
           }
 
-          // my ball, squashed on a bop
-          g.save();
-          g.translate(ball.x, ball.y);
-          g.scale(1 + 0.12 * ball.squash, 1 - 0.12 * ball.squash);
-          api.draw(g, 'ball', 0, 0, { rot: ball.rot });
-          g.restore();
+          // my balls, squashed on a bop
+          for (const b of balls) {
+            g.save();
+            g.translate(b.x, b.y);
+            g.scale(1 + 0.12 * b.squash, 1 - 0.12 * b.squash);
+            api.draw(g, 'ball', 0, 0, { rot: b.rot });
+            g.restore();
+          }
 
           // tap rings
           for (const r of rings) {
@@ -175,7 +203,7 @@
             g.fill();
           }
 
-          // first-run hint and the wind readout
+          // hints: first tap, the second ball, the wind
           g.textAlign = 'center';
           if (hint > 0 && !dead) {
             g.globalAlpha = hint;
@@ -184,8 +212,19 @@
             g.fillText('Tap the ball', 180, 140);
             g.globalAlpha = 1;
           }
+          if (newBallBanner > 0) {
+            g.globalAlpha = Math.min(1, newBallBanner);
+            g.font = '800 26px ui-rounded, system-ui, sans-serif';
+            g.lineWidth = 5;
+            g.strokeStyle = '#2b2522';
+            const msg = balls.length === 3 ? 'Three balls!' : 'Two balls!';
+            g.strokeText(msg, 180, 160);
+            g.fillStyle = '#fff';
+            g.fillText(msg, 180, 160);
+            g.globalAlpha = 1;
+          }
           if (Math.abs(wind) > 35) {
-            const arrows = Math.abs(wind) > 140 ? 3 : Math.abs(wind) > 80 ? 2 : 1;
+            const arrows = Math.abs(wind) > 160 ? 3 : Math.abs(wind) > 90 ? 2 : 1;
             const a = (wind > 0 ? '→' : '←').repeat(arrows);
             g.font = '700 16px ui-rounded, system-ui, sans-serif';
             g.fillStyle = 'rgba(120, 82, 30, 0.75)';
@@ -195,7 +234,12 @@
 
         down(x, y) { if (!dead) bop(x, y); },
         up() {},
-        ghost() { return { x: Math.round(ball.x), y: Math.round(ball.y), a: dead ? 0 : 1 }; },
+        ghost() {
+          const o = { x: Math.round(balls[0].x), y: Math.round(balls[0].y), a: dead ? 0 : 1 };
+          if (balls[1]) { o.x2 = Math.round(balls[1].x); o.y2 = Math.round(balls[1].y); }
+          return o;
+        },
+        _debug: () => ({ balls, grav, score, dead }),
       };
     },
   });

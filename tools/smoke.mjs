@@ -48,7 +48,7 @@ for (let run = 0; run < runs; run++) {
   const api = {
     W: 360, H: 640, view: { x0: 0, y0: -70, x1: 360, y1: 710 },
     rng: mulberry32(seed),
-    me: { name: 'Jacob', color: 'blue' }, opp: { name: 'Laura', color: 'pink' },
+    me: { name: 'Jacob', color: 'blue' }, opp: def.peerSync ? null : { name: 'Laura', color: 'pink' }, peer: () => null, auto: false,
     score(n) { if (!Number.isInteger(n)) throw new Error('score not integer: ' + n); score = n; scoreCalls++; },
     over() { if (overAt !== null) throw new Error('over() called twice'); overAt = t; },
     draw: noop, has: () => true, t: () => t,

@@ -6,9 +6,12 @@
 
   const PAN_X = 190, PAN_Y = 560;     // skillet anchor (cooking-surface centre)
   const REST_Y = 548;                 // pancake centre while sitting in the pan
-  const G = 1400;                     // gravity for the toss arc (peak 98 at T=.75, 448 at T=1.6)
-  const SWEEP0 = 1.3, SWEEP_MIN = 0.6, SWEEP_FACTOR = 0.97;   // needle sweep seconds 0->1
-  const OK_DEG = 40, PERFECT_DEG = 18;
+  const G = 1900;                     // gravity for the toss arc (peak ~72 at T=.55, ~314 at T=1.15)
+  // Tuned 2026-11-12 after "too easy/slow": faster needle, narrower zones, quicker tosses.
+  const SWEEP0 = 0.95, SWEEP_MIN = 0.5, SWEEP_FACTOR = 0.95;   // needle sweep seconds 0->1
+  // Landing windows narrow with every good toss (gradual difficulty): ±34° → ±24°, perfect ±12° → ±8°.
+  const okDeg = wins => Math.max(24, 34 - wins * 0.5);
+  const perfectDeg = wins => Math.max(8, 12 - wins * 0.2);
   const LIVES = 3;
   // meter geometry (p=0 at the bottom, p=1 at the top)
   const MX = 316, MW = 20, MTOP = 190, MBOT = 530;
@@ -17,14 +20,15 @@
 
   // total rotation in degrees for power p and spin multiplier m: convex in p so high counts are narrow
   const rot = (p, m) => 180 * (0.15 + 5.2 * Math.pow(p, 1.35)) * m;
-  const flight = p => 0.75 + 0.85 * p;                   // seconds airborne
+  const flight = p => 0.55 + 0.6 * p;                    // seconds airborne
   // inverse of rot(): the power that gives `deg` degrees (clamped to 0..1)
   function powerFor(deg, m) {
     const x = (deg / (180 * m) - 0.15) / 5.2;
     return x <= 0 ? 0 : Math.min(1, Math.pow(x, 1 / 1.35));
   }
   // zones for flips 1..5 at multiplier m: {k, lo, hi, plo, phi}; skipped when unreachable
-  function zonesFor(m) {
+  function zonesFor(m, wins) {
+    const OK_DEG = okDeg(wins), PERFECT_DEG = perfectDeg(wins);
     const z = [];
     for (let k = 1; k <= 5; k++) {
       const lo = powerFor(180 * k - OK_DEG, m), hi = powerFor(180 * k + OK_DEG, m);
@@ -52,9 +56,9 @@
       const parts = [], pops = [];
       let shake = 0, simT = 0;
 
-      function prepare() {          // seeded per-toss spin variation: 0.95..1.05
-        mul = 0.95 + api.rng() * 0.10;
-        zones = zonesFor(mul);
+      function prepare() {          // seeded per-toss spin variation: 0.88..1.12 (zones move every toss)
+        mul = 0.88 + api.rng() * 0.24;
+        zones = zonesFor(mul, wins);
       }
       prepare();
 
@@ -72,14 +76,14 @@
       function land() {
         const k = Math.round(fRot / 180), err = Math.abs(fRot - 180 * k);
         px = PAN_X; py = REST_Y;
-        if (err <= OK_DEG) {
-          const perfect = err <= PERFECT_DEG;
+        if (err <= okDeg(wins)) {
+          const perfect = err <= perfectDeg(wins);
           let pts = k * k * (perfect ? 2 : 1);
           if (k === 0) pts = 0;
           wins++;
           if (pts > 0) { score += pts; api.score(score); }
           pAng = 0; sx = 1.3; sy = 0.7; shake = 0.12 + 0.03 * k;
-          state = 'settle'; timer = 0.4; panKick = 1;
+          state = 'settle'; timer = 0.25; panKick = 1;
           crumbs(px, py + 6, 8 + 3 * k, ['#f4c26b', '#e39a3b', '#fff0c8'], 140 + 30 * k);
           if (pts > 0) {
             pop('+' + pts, px, py - 70, perfect ? '#ffb300' : '#c4651a', true);
@@ -91,7 +95,7 @@
           lives--; lostPop.push({ i: lives, t: 0 });
           const side = Math.random() < 0.5 ? -1 : 1;
           pAng = fRot; pVx = side * (120 + Math.random() * 60); pVy = -260; pSpin = side * 420;
-          state = 'splat'; timer = 1.0; shake = 0.3; panKick = 1;
+          state = 'splat'; timer = 0.7; shake = 0.3; panKick = 1;
           crumbs(px, py + 6, 16, ['#f4c26b', '#e39a3b', '#c97b2a'], 220);
           pop('Splat!', px, py - 80, '#c0392b', true);
           if (lives <= 0) { state = 'dead'; api.over(); }

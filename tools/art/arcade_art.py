@@ -1019,6 +1019,337 @@ def sheet_test():
     make_cam(0, 0.32 * 4, (0, 0))
     render(f'{ROOT}/tools/art/review/blocks_sheet.png')
 
+# ---------------------------------------------------------------- Fort Blast
+L = 0.01  # one logical unit in Blender units
+
+def F(k):
+    t = {
+        'wood': ('#E3A85C', {'shine': 1}), 'wood_d': ('#9A5F2E', {}), 'wood_dd': ('#6E3F1C', {}),
+        'barrel': ('#3E3D50', {'shine': 1}), 'barrel_l': ('#6A6980', {'shine': 1}), 'bronze': ('#EDB44B', {'shine': 1}),
+        'gold': ('#FFC72A', {'shine': 1}), 'gem_r': ('#EC3B3B', {'shine': 1}), 'gem_b': ('#2F7BE8', {'shine': 1}),
+        'velvet': ('#B8284A', {}), 'cball': ('#34344A', {'shine': 1}), 'drill': ('#C6CCD6', {'shine': 1}),
+        'drill_b': ('#EC3B3B', {'shine': 1}), 'fin': ('#FFC72A', {'shine': 1}),
+        'moon': ('#D2CEE6', {}), 'moon_d': ('#ABA6C6', {}), 'moon_dd': ('#BEB9D8', {}),
+        'pole': ('#F4EFE2', {'shine': 1}), 'f_blue': ('#2F6FEA', {'shine': 1}), 'f_pink': ('#FF6FB5', {'shine': 1}),
+        'f_blue_l': ('#74A4F5', {}), 'f_pink_l': ('#FFA3D3', {}),
+        'grass': ('#58CC45', {}), 'grass_l': ('#8BE46B', {}), 'grass_d': ('#3FAF3A', {}),
+        'soil': ('#B97844', {}), 'soil_l': ('#CF9158', {}), 'soil_d': ('#98602F', {}),
+        'hill_far': ('#A5DDC8', {}), 'hill_near': ('#7ED48C', {}), 'cloud': ('#FFFFFF', {}),
+    }[k]
+    return mat('f_' + k, t[0], **t[1])
+
+def sph(name, r, loc, m, sc=(1, 1, 1), rz=0.0, outline=True, seg=40, rings=20):
+    bm = bmesh.new(); bmesh.ops.create_uvsphere(bm, u_segments=seg, v_segments=rings, radius=r)
+    R = Matrix.Rotation(rz, 3, 'Z')
+    for v in bm.verts:
+        v.co = R @ Vector((v.co.x * sc[0], v.co.y * sc[1], v.co.z * sc[2])) + Vector(loc)
+    o = mesh_obj(name, bm, [m], smooth=True, sharp=60)
+    if outline: add_outline(o)
+    return o
+
+def cyl_y(name, r, depth, loc, m, seg=48, outline=True):
+    o = lathe(name, [(0, -depth / 2), (r, -depth / 2), (r, depth / 2), (0, depth / 2)], [0, 0, 0], seg=seg, mats=[m], smooth=True, sharp=40)
+    o.rotation_euler = (pi / 2, 0, 0); o.location = loc
+    if outline: add_outline(o)
+    return o
+
+def flat_poly(name, pts, y, m, depth=0.002):
+    o = prism(name, pts, depth, m); o.location = (0, y, 0); return o
+
+def annulus(name, r0, r1, c, y, m, seg=48):
+    bm = bmesh.new()
+    a = [bm.verts.new((c[0] + r0 * cos(2 * pi * i / seg), y, c[1] + r0 * sin(2 * pi * i / seg))) for i in range(seg)]
+    b = [bm.verts.new((c[0] + r1 * cos(2 * pi * i / seg), y, c[1] + r1 * sin(2 * pi * i / seg))) for i in range(seg)]
+    for i in range(seg):
+        j = (i + 1) % seg
+        bm.faces.new((a[i], a[j], b[j], b[i]))
+    bmesh.ops.recalc_face_normals(bm, faces=bm.faces)
+    for f in bm.faces:
+        if f.normal.y > 0: f.normal_flip()
+    return mesh_obj(name, bm, [m], smooth=False)
+
+def wheel(x, z, y, R=7.5):
+    objs = []
+    objs.append(cyl_y('disc', R * L, 2.6 * L, (x * L, y * L, z * L), F('wood')))
+    yf = (y - 1.3) * L - 0.0006
+    objs.append(annulus('tire', (R - 1.7) * L, (R - 0.15) * L, (x * L, z * L), yf, F('wood_d')))
+    for k in range(6):
+        a = radians(k * 30 + 8)
+        ca, sa = cos(a), sin(a)
+        hw = 0.55
+        pts = []
+        for (u, w) in ((1.0, -hw), ((R - 1.6), -hw), ((R - 1.6), hw), (1.0, hw)):
+            pts.append((x * L + (u * ca - w * sa) * L, z * L + (u * sa + w * ca) * L))
+        objs.append(flat_poly('spoke', pts, yf - 0.0006, F('wood_dd')))
+        pts2 = [(x * L - (p[0] - x * L), z * L - (p[1] - z * L)) for p in pts]
+        objs.append(flat_poly('spoke2', pts2, yf - 0.0006, F('wood_dd')))
+    objs.append(cyl_y('hub', 2.3 * L, 3.4 * L, (x * L, (y - 0.4) * L, z * L), F('barrel_l')))
+    return objs
+
+def b_cannon_base():
+    objs = []
+    pts = [(-17, 6), (17, 6), (17, 14), (11, 23), (3.8, 23)]
+    for i in range(1, 8):  # small semicircular notch for the barrel trunnion
+        a = pi * i / 8
+        pts.append((3.8 * cos(a), 23 - 3.4 * sin(a) * 1.0))
+    pts += [(-3.8, 23), (-11, 23), (-17, 14)]
+    pts = [pts[0], pts[1], pts[2], pts[3], pts[4]] + [(3.8 * cos(pi * i / 8) * -1 * -1, 23 - 3.2 * sin(pi * i / 8)) for i in range(1, 8)] + pts[-3:]
+    body = prism('body', [(x * L, z * L) for x, z in pts], 10 * L, F('wood'), bevel=0.012, seg=3)
+    add_outline(body); objs.append(body)
+    # iron strap and nails (flat decals on the front face)
+    yf = -5.0 * L - 0.0008
+    objs.append(flat_poly('strap', [(-16.6 * L, 17.2 * L), (16.6 * L, 17.2 * L), (16.6 * L, 19.0 * L), (-16.6 * L, 19.0 * L)], yf, F('wood_dd')))
+    for xx in (-13.5, 13.5):
+        objs.append(sph('nail', 1.0 * L, (xx * L, yf - 0.001, 18.1 * L), F('barrel_l'), outline=False, seg=12, rings=8))
+    for xx in (-10, 10):
+        objs.extend(wheel(xx, 7.5, -6.8))
+    return objs
+
+def b_cannon_barrel(theta=pi / 2, pivot_local=True):
+    prof = [(0, -5.5), (1.6, -5.3), (2.4, -4.5), (2.4, -3.8), (5.2, -3.6), (6.3, -2.4), (6.5, 0), (6.0, 8), (5.4, 17),
+            (5.1, 24), (6.5, 24.8), (6.5, 29.6), (5.0, 29.6), (0, 29.4)]
+    segm = []
+    for i in range(len(prof) - 1):
+        z0 = prof[i][1]
+        segm.append(1 if z0 >= 24.0 or 0 <= z0 and False else 0)
+    # lighter reinforcing ring near the breech and the muzzle swell
+    mats = [F('barrel'), F('barrel_l')]
+    o = lathe('barrel', [(r * L, z * L) for r, z in prof], segm, seg=64, mats=mats, smooth=True, sharp=40)
+    add_outline(o)
+    o.rotation_euler = (0, theta, 0)
+    peg = cyl_y('peg', 2.2 * L, 2.0 * L, (0, -7.0 * L, 0), F('bronze'), seg=24)
+    root = empty('barrel'); adopt(root, [o, peg])
+    # the peg is oriented in world already; keep it unrotated by parenting then rotating root instead
+    o.rotation_euler = (0, 0, 0)
+    for ch in (o,):
+        ch.rotation_euler = (0, pi / 2, 0)
+    root.rotation_euler = (0, theta - pi / 2, 0)
+    return root
+
+def b_crown():
+    R = 8.4
+    objs = []
+    band = lathe('band', [(0, 0), (R * L, 0), ((R + 1.0) * L, 1.0 * L), ((R + 1.0) * L, 5.0 * L), (R * L, 6.0 * L), (0, 6.0 * L)],
+                 [0, 0, 0, 0, 0], seg=64, mats=[F('gold')], smooth=True, sharp=40)
+    add_outline(band); objs.append(band)
+    vel = lathe('velvet', [(0, 5.4 * L), ((R - 0.8) * L, 5.4 * L), ((R - 0.8) * L, 6.15 * L), (0, 6.15 * L)], [0, 0, 0], seg=48, mats=[F('velvet')])
+    objs.append(vel)
+    hs = [8.0, 7.5, 7.5]
+    angs = [-90, 30, 150]
+    tipm = [F('gold'), F('gold'), F('gold')]
+    for h, a, tm in zip(hs, angs, tipm):
+        ar = radians(a); px, py = (R - 2.2) * cos(ar), (R - 2.2) * sin(ar)
+        sp = lathe('spike', [(0, 0), (4.0 * L, 0), (3.4 * L, 2.0 * L), (1.6 * L, (h - 1.5) * L), (0, h * L)], [0, 0, 0, 0], seg=24, mats=[F('gold')], smooth=True, sharp=50)
+        sp.location = (px * L, py * L, 5.2 * L); add_outline(sp); objs.append(sp)
+        objs.append(sph('tip', 2.0 * L, (px * L, py * L, (5.2 + h + 0.8) * L), tm, seg=20, rings=12))
+    for a, gm, sz in ((-90, F('gem_r'), 2.6), (-90 + 40, F('gem_b'), 2.0), (-90 - 40, F('gem_b'), 2.0)):
+        ar = radians(a)
+        objs.append(sph('gem', sz * L, ((R + 1.0) * cos(ar) * L, (R + 1.0) * sin(ar) * L, 3.0 * L), gm, sc=(1.0, 0.45, 1.15), rz=ar + pi / 2, seg=24, rings=12))
+    r_ = empty('crown'); adopt(r_, objs)
+    r_.rotation_euler = (0, 0, radians(-8))
+    return r_
+
+def b_shotball(r=3.8):
+    o = sph('ball', r * L, (0, 0, 0), F('cball'), seg=48, rings=24)
+    return o
+
+def twisted(name, x0, x1, R, lobes, turns, amp, m, nr=40, seg=60, taper=True, power=0.95):
+    bm = bmesh.new(); rings = []
+    for i in range(nr + 1):
+        t = i / nr
+        x = x0 + (x1 - x0) * t
+        rr = R * ((1 - t) ** power if taper else 1.0)
+        if i == nr: rr = 1e-5
+        ring = []
+        for k in range(seg):
+            th = 2 * pi * k / seg
+            rk = rr * (1 + amp * cos(lobes * (th - turns * 2 * pi * t)))
+            ring.append(bm.verts.new((x, rk * cos(th), rk * sin(th))))
+        rings.append(ring)
+    for i in range(nr):
+        for k in range(seg):
+            j = (k + 1) % seg
+            bm.faces.new((rings[i][k], rings[i][j], rings[i + 1][j], rings[i + 1][k]))
+    bm.faces.new(rings[0][::-1])
+    bmesh.ops.recalc_face_normals(bm, faces=bm.faces)
+    return mesh_obj(name, bm, [m], smooth=True, sharp=70)
+
+def b_shotdrill():
+    objs = []
+    tip = twisted('tip', 0.5 * L, 9.0 * L, 3.4 * L, 2, 0.75, 0.22, F('drill')); add_outline(tip); objs.append(tip)
+    body = lathe('body', [(0, -8.5 * L), (2.7 * L, -8.5 * L), (2.9 * L, -7.5 * L), (2.9 * L, -1.2 * L), (3.4 * L, -0.6 * L), (3.4 * L, 0.6 * L), (0, 0.6 * L)],
+                 [0, 0, 0, 1, 1, 1], seg=36, mats=[F('drill_b'), F('drill')], smooth=True, sharp=40)
+    body.rotation_euler = (0, pi / 2, 0); add_outline(body); objs.append(body)
+    for sgn in (1, -1):
+        fin = prism('fin', [(-2.5 * L, sgn * 2.4 * L), (-8.2 * L, sgn * 3.9 * L), (-9.4 * L, sgn * 3.9 * L), (-9.4 * L, sgn * 2.4 * L)], 0.9 * L, F('fin'), bevel=0.003, seg=2)
+        add_outline(fin); objs.append(fin)
+    r_ = empty('drill'); adopt(r_, objs)
+    return r_
+
+CRATERS = [(-0.34, 0.30, 0.20), (0.30, 0.38, 0.13), (0.12, -0.18, 0.16), (-0.42, -0.30, 0.11), (0.45, -0.28, 0.10), (-0.02, 0.62, 0.08)]
+
+def b_moon(R=29.5 * L):
+    objs = [sph('moon', R, (0, 0, 0), F('moon'), seg=96, rings=48)]
+    for (u, v, rf) in CRATERS:
+        n = Vector((u, -math.sqrt(max(1 - u * u - v * v, 0.01)), v)).normalized()
+        for (k, rr, off, mm) in ((0, rf, 0.004, 'moon_d'), (1, rf * 0.62, 0.007, 'moon_dd')):
+            c = lathe('crater', [(0, 0), (rr * R, 0), (rr * R, 0.4 * L), (0, 0.4 * L)], [0, 0, 0], seg=40, mats=[F(mm)], smooth=False)
+            c.rotation_mode = 'QUATERNION'; c.rotation_quaternion = n.to_track_quat('Z', 'Y')
+            # place so the whole disc clears the surface
+            d = R * math.sqrt(max(1 - rr * rr, 0.0)) + (off * R * 0.5)
+            c.location = n * (R * (1 + off * 0.5)) if False else n * (R * math.cos(math.asin(min(rr, 0.95))) + 0.0003 + off * R * 0.2)
+            objs.append(c)
+    r_ = empty('moon'); adopt(r_, objs); return r_
+
+def b_flag(col):
+    objs = []
+    pole = lathe('pole', [(0, 0), (0.8 * L, 0), (0.8 * L, 19 * L), (0, 19 * L)], [0, 0, 0], seg=16, mats=[F('pole')], smooth=True, sharp=40)
+    pole.location = (0, -0.6 * L, 0); add_outline(pole); objs.append(pole)
+    objs.append(sph('knob', 1.7 * L, (0, -0.6 * L, 19.6 * L), F('gold'), seg=20, rings=12))
+    pts_t, pts_b = [], []
+    n = 16
+    for i in range(n + 1):
+        x = 0.6 + 10.0 * i / n
+        c = 13.4 + 1.3 * sin(0.62 * x + 0.2) - 0.18 * x
+        h = 4.6 * (1 - i / n) ** 0.85 + 0.35
+        pts_t.append((x * L, (c + h) * L)); pts_b.append((x * L, (c - h) * L))
+    poly = pts_t + pts_b[::-1]
+    cloth = prism('cloth', poly, 0.9 * L, F('f_' + col), bevel=0.003, seg=2)
+    add_outline(cloth); objs.append(cloth)
+    # lighter stripe decal along the cloth centre line
+    st = []
+    for i in range(3, n - 3):
+        pass
+    r_ = empty('flag'); adopt(r_, objs); return r_
+
+def fort_sprite(key, build, wl, hl, elev=0, mode='fit', c=(0, 0), margin=1.0):
+    if ONLY and key not in ONLY:
+        return
+    clear(); build(); lights(); W, H = int(wl * 3), int(hl * 3); setup(W, H)
+    mx = max(W, H)
+    if mode == 'fit':
+        x0, x1, y0, y1 = proj_bbox(elev)
+        w = x1 - x0 + 0.04; h = y1 - y0 + 0.04; m = margin * L
+        sc = max((w + 2 * m) * mx / W, (h + 2 * m) * mx / H)
+        c = ((x0 + x1) / 2, (y0 + y1) / 2)
+    else:
+        sc = max(wl, hl) * L
+    make_cam(elev, sc, c)
+    render(f'{OUT}/{key}.png'); print(f'[{STYLE}] {key}')
+
+def fort_sprites():
+    # base: wheels touch the bottom edge (frame bottom = wheel bottom - outline), centred on x
+    fort_sprite('cannon_base', b_cannon_base, 40, 28, mode='exact', c=(0, -0.02 + 0.14))
+    # barrel: pivot (trunnion) at 20% from the left, vertically centred
+    fort_sprite('cannon_barrel', b_cannon_barrel, 40, 18, mode='exact', c=(0.12, 0.0))
+    fort_sprite('crown', b_crown, 26, 20, elev=24)
+    fort_sprite('shot_ball', b_shotball, 12, 12, margin=0.6)
+    fort_sprite('shot_drill', b_shotdrill, 22, 12, margin=0.6)
+    fort_sprite('moon', b_moon, 64, 64, mode='exact', c=(0, 0))
+    fort_sprite('flag_blue', lambda: b_flag('blue'), 16, 24, mode='exact', c=(0.048, -0.02 + 0.12))
+    fort_sprite('flag_pink', lambda: b_flag('pink'), 16, 24, mode='exact', c=(0.048, -0.02 + 0.12))
+
+# ---- background ---------------------------------------------------------
+def bgplane(name, x0, x1, z0, z1, y, m):
+    bm = bmesh.new()
+    vs = [bm.verts.new(p) for p in ((x0, y, z0), (x1, y, z0), (x1, y, z1), (x0, y, z1))]
+    bm.faces.new(vs)
+    bmesh.ops.recalc_face_normals(bm, faces=bm.faces)
+    for f in bm.faces:
+        if f.normal.y > 0: f.normal_flip()
+    return mesh_obj(name, bm, [m], smooth=False)
+
+def sky_mat():
+    m = bpy.data.materials.new('sky'); m.use_nodes = True
+    nt = m.node_tree; nt.nodes.clear()
+    out = nd(nt, 'ShaderNodeOutputMaterial'); em = nd(nt, 'ShaderNodeEmission')
+    tc = nd(nt, 'ShaderNodeTexCoord'); sep = nd(nt, 'ShaderNodeSeparateXYZ')
+    nt.links.new(tc.outputs['Generated'], sep.inputs[0])
+    def c(h):
+        h = h.lstrip('#'); return tuple(lin(int(h[i:i + 2], 16) / 255) for i in (0, 2, 4)) + (1,)
+    col = ramp_fac(nt, sep.outputs['Z'], [(0.0, c('#D5F3FF')), (0.14, c('#BFEAFF')), (0.55, c('#7CCBF7')), (1.0, c('#3B9EEE'))])
+    nt.links.new(col, em.inputs['Color']); nt.links.new(em.outputs[0], out.inputs['Surface'])
+    return m
+
+def b_bg():
+    GY = 0.80  # outline top = logical y 560 (up = 640-560 = 80 px/100)
+    X0, X1 = -0.3, 3.9
+    bgplane('sky', X0, X1, 0.0, 6.5, 3.0, sky_mat())
+    # sun
+    sph('sun', 0.17, (0.62, 2.0, 5.75), mat('f_sun', '#FFE066', shine=0), sc=(1, 0.3, 1), seg=48, rings=24)
+    # clouds: flattened spheres at one depth so outlines merge
+    def cloud(cx, cz, k=1.0):
+        for dx, dz, r in ((-0.26, -0.02, 0.10), (-0.12, 0.05, 0.15), (0.05, 0.09, 0.19), (0.24, 0.02, 0.15), (0.38, -0.03, 0.10), (0.05, -0.06, 0.13)):
+            sph('c', r * k, (cx + dx * k, 1.6, cz + dz * k), F('cloud'), sc=(1, 0.35, 0.92), seg=36, rings=18)
+    cloud(0.45, 5.15, 1.0)
+    cloud(3.12, 4.55, 0.85)
+    cloud(0.42, 3.05, 0.7)
+    cloud(1.95, 5.95, 0.6)
+    cloud(3.25, 3.15, 0.55)
+    # hills
+    for x, rx, rz, y in ((0.35, 1.2, 0.46, 1.2), (2.0, 1.1, 0.34, 1.2), (3.5, 1.1, 0.5, 1.2)):
+        sph('hf', 1.0, (x, y, GY - 0.12), F('hill_far'), sc=(rx, 0.2, rz), seg=64, rings=32)
+    for x, rx, rz, y in ((1.15, 0.95, 0.28, 0.8), (2.85, 1.0, 0.26, 0.8), (-0.1, 0.85, 0.22, 0.8)):
+        sph('hn', 1.0, (x, y, GY - 0.1), F('hill_near'), sc=(rx, 0.2, rz), seg=64, rings=32)
+    # ground: grass plane in front, dark outline plane behind it, soil behind that (all flat)
+    ot = 0.02
+    bgplane('soil', X0, X1, -0.2, GY - 0.22, 0.02, F('soil'))
+    bgplane('grass_ol', X0, X1, GY - 0.22 - ot, GY, 0.01, outline_mat())
+    bgplane('grass', X0, X1, GY - 0.22, GY - ot, 0.0, F('grass'))
+    bgplane('grass_hi', X0, X1, GY - 0.07, GY - ot, -0.001, F('grass_l'))
+    bgplane('grass_lo', X0, X1, GY - 0.22, GY - 0.19, -0.001, F('grass_d'))
+    # soil pebbles / stripes
+    import random
+    rnd = random.Random(4)
+    for i in range(16):
+        x = rnd.uniform(0.0, 3.6); z = rnd.uniform(-0.05, GY - 0.32)
+        s = rnd.uniform(0.035, 0.06)
+        sph('peb', s, (x, 0.0, z), F('soil_l' if i % 2 else 'soil_d'), sc=(1.4, 0.2, 0.8), outline=False, seg=20, rings=10)
+    for i in range(7):
+        x = rnd.uniform(0.1, 3.5); z = GY - 0.30 - 0.02 * (i % 3)
+        bgplane('st', x, x + rnd.uniform(0.15, 0.3), z, z + 0.018, 0.0, F('soil_d'))
+
+def bg_render():
+    if ONLY and 'bg_fort' not in ONLY:
+        return
+    clear(); b_bg(); lights(); setup(1080, 1920, opaque=True)
+    make_cam(0, 6.4, (1.8, 3.2))
+    render(f'{OUT}/bg_fort.png'); print(f'[{STYLE}] bg_fort')
+
+# ---- thumbnail ----------------------------------------------------------
+def thumb_fort():
+    if ONLY and 'thumb_fort' not in ONLY:
+        return
+    clear()
+    sp = 0.31
+    def fort(cx, cols, flag, side):
+        zb = -0.80
+        rows = [[cols[0], cols[1], cols[0], cols[2]], [cols[2], None, None, cols[1]], [cols[1], cols[0], cols[2], cols[0]]]
+        if side > 0: rows = [r[::-1] for r in rows]
+        for rj, row in enumerate(rows):
+            for ci, c in enumerate(row):
+                if c:
+                    b = b_block(c); b.location = (cx + (ci - 1.5) * sp, 0, zb + rj * sp)
+        outer = -1.5 if side < 0 else 1.5
+        b = b_block(cols[0]); b.location = (cx + outer * sp, 0, zb + 3 * sp)
+        fl = b_flag(flag); fl.location = (cx + outer * sp - 0.032 * (1 if side < 0 else -1) * 0 , -0.02, zb + 3 * sp + 0.13)
+        if side > 0: fl.scale = (1, 1, 1)
+        crown = b_crown(); crown.scale = (1.25, 1.25, 1.25)
+        crown.location = (cx, -0.02, zb + 1 * sp - 0.13 + 0.015)
+        top = zb + 2 * sp + 0.13
+        cb = b_cannon_base(); rb = empty('cb'); adopt(rb, cb); rb.location = (cx - side * 0.17, 0, top)
+        pv = empty('pv'); pv.location = (cx - side * 0.17, -0.0, top + 0.225)
+        br = b_cannon_barrel(theta=radians(60) if side < 0 else radians(-60)); br.location = pv.location
+        br.scale = (1, 1, 1)
+    fort(-1.0, ['blue', 'teal', 'purple'], 'blue', -1)
+    fort(1.0, ['pink', 'orange', 'red'], 'pink', 1)
+    m = b_moon(0.27); m.location = (0.0, 0.45, 0.12)
+    ball = b_shotball(0.05); ball.location = (-0.36, -0.1, 0.5)
+    lights(); setup(600, 400)
+    make_cam(8, 3.4, (0.0, 0.0))
+    render(f'{OUT}/thumb_fort.png'); print(f'[{STYLE}] thumb_fort')
+
+
 if __name__ == '__main__':
     T = TARGETS
     if 'all' in T:
@@ -1031,3 +1362,5 @@ if __name__ == '__main__':
     if 'icons' in T: icons()
     if 'thumb_blocks' in T: thumb_blocks()
     if 'sheet' in T: sheet_test()
+    if 'fort' in T:
+        fort_sprites(); bg_render(); thumb_fort()
