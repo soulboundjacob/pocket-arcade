@@ -297,6 +297,31 @@
       "h": 26,
       "ax": 0.5,
       "ay": 0.97
+    },
+    "table_rink": {
+      "file": "table_rink.png",
+      "w": 360,
+      "h": 640
+    },
+    "mallet_blue": {
+      "file": "mallet_blue.png",
+      "w": 56,
+      "h": 56
+    },
+    "mallet_pink": {
+      "file": "mallet_pink.png",
+      "w": 56,
+      "h": 56
+    },
+    "puck": {
+      "file": "puck.png",
+      "w": 36,
+      "h": 36
+    },
+    "thumb_hockey": {
+      "file": "thumb_hockey.png",
+      "w": 150,
+      "h": 100
     }
   }
 }

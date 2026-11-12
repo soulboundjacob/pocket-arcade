@@ -28,6 +28,7 @@
  *               opponent's latest ghost() object, or null.
  *   down/up(x, y)  pointer in logical units (one pointer at a time).
  *   move(x, y)  optional: pointer moved while down.
+ *   tap(x, y)   optional: a second finger touched down while another is still down.
  *   ghost()     small JSON object (< 100 bytes; versus games up to ~300) describing my
  *               state for the other phone.
  *   receive(type, data)  optional, versus games: a message the other phone's copy sent
@@ -205,7 +206,13 @@
     let pointer = null;
     function down(e) {
       e.preventDefault();
-      if (state !== 'play' || pointer !== null) return;
+      if (state !== 'play') return;
+      if (pointer !== null) {
+        // A second finger while one is already down: games may treat it as a tap
+        // (e.g. hitting a power-up button while the other thumb steers).
+        if (inst.tap) { const [tx, ty] = toLogical(e); inst.tap(tx, ty); }
+        return;
+      }
       pointer = e.pointerId;
       const [x, y] = toLogical(e);
       inst.down && inst.down(x, y);

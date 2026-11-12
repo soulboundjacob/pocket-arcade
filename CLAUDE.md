@@ -1,6 +1,6 @@
 # Pocket Arcade
 
-A phone web game for Jacob and Laura. Featured: Block Duel, a falling-block versus game with power-ups (last one standing wins), and Critter Clash, three critters a side on a destructible island where both players move and aim at the same time. Extras: four one-tap high-score games. Every game plays solo or head-to-head on the same seeded course at the same time. Built 2026-11-12. Personal project.
+A phone web game for Jacob and Laura. Featured: Block Duel, a falling-block versus game with power-ups (last one standing wins), Critter Clash, three critters a side on a big destructible island (landscape, camera, Map view) where both players move and aim at the same time, and Puck Duel, real-time air hockey with power-ups (the half holding the puck owns its physics; see the header of `js/games/hockey.js`). Extras: four one-tap high-score games. Every game plays solo or head-to-head on the same seeded course at the same time. Built 2026-11-12. Personal project.
 
 - Live: GitHub Pages from `main` (`https://soulboundjacob.github.io/pocket-arcade/`). Deploy with `tools/deploy.sh "what changed"`: it stamps `version.json` and the `?v=` script URLs (busts phone caches; open pages show an update banner in the lobby), commits and pushes.
 - Dev: preview server `pocket-arcade` in `~/Documents/work/.claude/launch.json` (port 4480). `?as=Laura` sets the player for one tab. Always test with `?room=test` (and `ROOM=test` for the bot) so test players never show up in the real room.
