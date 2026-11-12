@@ -1,15 +1,15 @@
 # Pocket Arcade
 
-A phone web game for Jacob and Laura: four one-tap mini-games, played solo or head-to-head on the same seeded course at the same time. Built 2026-11-12. Personal project.
+A phone web game for Jacob and Laura. Featured: Block Duel, a falling-block versus game with power-ups (last one standing wins). Extras: four one-tap high-score games. Every game plays solo or head-to-head on the same seeded course at the same time. Built 2026-11-12. Personal project.
 
-- Live: GitHub Pages from `main` (`https://soulboundjacob.github.io/pocket-arcade/`). Push to deploy.
+- Live: GitHub Pages from `main` (`https://soulboundjacob.github.io/pocket-arcade/`). Deploy with `tools/deploy.sh "what changed"`: it stamps `version.json` and the `?v=` script URLs (busts phone caches; open pages show an update banner in the lobby), commits and pushes.
 - Dev: preview server `pocket-arcade` in `~/Documents/work/.claude/launch.json` (port 4480). `?as=Laura` sets the player for one tab. Always test with `?room=test` (and `ROOM=test` for the bot) so test players never show up in the real room.
 - Solo test page: `dev/harness.html?game=plane&style=clay&ghost=1` (ghost=1 replays your own run 0.6 s late).
 
 ## Layout
 - `index.html` app shell markup and styles. `js/shell.js` players, lobby, invites, matches, results. `js/net.js` live sync.
 - `js/engine.js` game contract (header comment), sprites, seeded RNG, fixed 120 Hz runner. World is 360x640 logical units.
-- `js/games/*.js` one file per game: `plane`, `flip`, `stack`, `keepup`.
+- `js/games/*.js` one file per game: `blocks` (versus: `def.versus`, attacks travel as `api.send` → `gx` broadcast → `receive`), `plane`, `flip`, `stack`, `keepup`.
 - `assets/manifest.json` sprite keys and logical sizes. `assets/<style>/` holds the renders for each look (clay, gloss, toon). The live look is `ARCADE_STYLE` in `index.html` (falls back to clay).
 
 ## Live sync
