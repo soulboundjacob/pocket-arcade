@@ -5,6 +5,7 @@
 // The fake run's score climbs at random and it "dies" after 8-18 s (or BOT_LIFE ms).
 import { createClient } from '@supabase/supabase-js';
 import fs from 'node:fs';
+const BOT_VER = process.env.VER || (fs.readFileSync(new URL('../index.html', import.meta.url), 'utf8').match(/ARCADE_VERSION = "(\d+)"/) || [])[1] || '0';
 
 const cfg = fs.readFileSync(new URL('../js/config.js', import.meta.url), 'utf8');
 const pick = k => cfg.match(new RegExp(k + ': "([^"]+)"'))[1];
@@ -31,7 +32,7 @@ let current = null;
 ch.subscribe(async status => {
   log('status', status);
   if (status !== 'SUBSCRIBED') return;
-  await ch.track({ name, status: 'lobby', game: null, color, at: Date.now() });
+  await ch.track({ name, status: 'lobby', game: null, color, ver: BOT_VER, at: Date.now() });
   send('hello', { bests: {}, tally: {}, ask: true });
   if (mode === 'invite') {
     setTimeout(() => {
@@ -64,7 +65,7 @@ function fakeGhost(g, t, alive, score) {
 function play(inv) {
   current = { id: inv.id, versus: inv.game === 'blocks', forceEnd: false };
   const me = current;
-  ch.track({ name, status: 'playing', game: inv.game, color, at: Date.now() });
+  ch.track({ name, status: 'playing', game: inv.game, color, ver: BOT_VER, at: Date.now() });
   let nextAttack = 6;
   const life = +(process.env.BOT_LIFE || 8000 + Math.random() * 10000);
   const start = Date.now() + (3 * 700); // the app's 3-2-1 countdown
@@ -86,7 +87,7 @@ function play(inv) {
       clearInterval(iv);
       const done = { id: inv.id, s: me.versus ? score * 100 : score, at: t, own: !me.forceEnd };
       for (let i = 0; i < 3; i++) setTimeout(() => send('done', done), i * 1000);
-      ch.track({ name, status: 'lobby', game: null, color, at: Date.now() });
+      ch.track({ name, status: 'lobby', game: null, color, ver: BOT_VER, at: Date.now() });
       log('bot done with', score);
     }
   }, 125);

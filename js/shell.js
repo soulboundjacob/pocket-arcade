@@ -119,15 +119,29 @@
       el('span', 'tn blue', 'Jacob ' + (t.Jacob || 0)),
       el('span', 'tn pink', 'Laura ' + (t.Laura || 0)));
   }
+  // Both phones must run the same build (the same-time games simulate on each phone).
+  // Deploy stamps sort as text; builds from before this check report no version.
+  const MYVER = window.ARCADE_VERSION || '0';
+  function versionGap() {
+    const p = peers[other()];
+    if (!p) return null;
+    const v = p.ver || '0';
+    if (v === MYVER) return null;
+    return v > MYVER ? 'me' : 'them';   // who needs to update
+  }
   function renderLobby() {
     $('#me-name').textContent = me;
     $('#me-chip').className = 'me-chip ' + colorOf(me);
     const p = peers[other()];
     const peer = $('#peer');
     peer.className = 'peer ' + (!p ? 'away' : p.status === 'playing' ? 'busy' : 'here');
+    const gap = versionGap();
     peer.querySelector('.txt').textContent = !p ? other() + ' is away'
+      : gap === 'them' ? other() + ' is here, on an older version. Ask ' + other() + ' to tap Update.'
+      : gap === 'me' ? other() + ' is here, on a newer version. Tap Update above.'
       : p.status === 'playing' && p.game ? other() + ' is playing ' + gameName(p.game)
       : other() + ' is here';
+    if (gap === 'me') checkVersion();
     renderTally($('#tally'));
     $('#a2hs').hidden = !(isIOS && !standalone) || store.get('a2hsHidden', false);
     const grid = $('#games');
@@ -177,8 +191,12 @@
     const here = !!peers[other()];
     const duo = $('#btn-duo');
     duo.textContent = 'Play with ' + other();
-    duo.disabled = !here;
-    $('#duo-note').textContent = here ? '' : other() + " isn't here right now.";
+    const gap = versionGap();
+    duo.disabled = !here || !!gap;
+    $('#duo-note').textContent = !here ? other() + " isn't here right now."
+      : gap === 'them' ? other() + " needs to update first: Update is at the top of " + other() + "'s game list."
+      : gap === 'me' ? 'Update first: tap the Update banner at the top of the game list.'
+      : '';
     overlay('sheet', true);
   }
   $('#btn-duo').onclick = () => sheetGame && invite(sheetGame);
@@ -238,6 +256,7 @@
   Net.on('invite', inv => {
     if (!Arcade.games[inv.game]) return;
     if (match && !match.resolved) { Net.send('answer', { id: inv.id, ok: false, why: 'busy' }); return; }
+    if (versionGap()) { Net.send('answer', { id: inv.id, ok: false, why: 'version' }); renderLobby(); return; }
     if (pending) {
       // We both asked at the same moment. Both phones keep the invite with the lower id.
       if (inv.id < pending.id) { clearPending(); accept(inv); }
@@ -257,7 +276,9 @@
     const p = pending;
     clearPending();
     if (a.ok) startMatch({ id: p.id, game: p.game, seed: p.seed, mode: 'duo' });
-    else toast(a.why === 'busy' ? other() + ' is in a game.' : other() + " can't play right now.");
+    else toast(a.why === 'busy' ? other() + ' is in a game.'
+      : a.why === 'version' ? 'Update both phones first.'
+      : other() + " can't play right now.");
   });
   Net.on('cancel', c => {
     if (incoming && c.id === incoming.id) {
@@ -608,7 +629,7 @@
   } else {
     show('lobby');
     renderLobby();
-    Net.start(me, { status: 'lobby', game: null, color: colorOf(me) });
+    Net.start(me, { status: 'lobby', game: null, color: colorOf(me), ver: MYVER });
   }
   // Long-press on iOS can pop the text magnifier; stop it on the game surface.
   canvas.addEventListener('touchstart', e => e.preventDefault(), { passive: false });

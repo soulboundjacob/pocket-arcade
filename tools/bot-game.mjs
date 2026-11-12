@@ -4,6 +4,7 @@
 // presence, invite/answer, tick (score + ghost), gx (game messages) and done.
 import { createClient } from '@supabase/supabase-js';
 import fs from 'node:fs';
+const BOT_VER = process.env.VER || (fs.readFileSync(new URL('../index.html', import.meta.url), 'utf8').match(/ARCADE_VERSION = "(\d+)"/) || [])[1] || '0';
 import vm from 'node:vm';
 
 const root = new URL('..', import.meta.url);
@@ -70,7 +71,7 @@ ch.on('broadcast', { event: 'msg' }, ({ payload: m }) => {
 ch.subscribe(async status => {
   log('status', status);
   if (status === 'SUBSCRIBED') {
-    await ch.track({ name, status: 'lobby', game: null, color: COLOR[name], at: Date.now() });
+    await ch.track({ name, status: 'lobby', game: null, color: COLOR[name], ver: BOT_VER, at: Date.now() });
     send('hello', { bests: {}, tally: {}, ask: true });
   }
 });
@@ -78,7 +79,7 @@ ch.subscribe(async status => {
 function play(inv) {
   const def = defs[inv.game];
   const g = game = { id: inv.id, def: inv.game, peer: null, over: false, score: 0, t: 0 };
-  ch.track({ name, status: 'playing', game: inv.game, color: COLOR[name], at: Date.now() });
+  ch.track({ name, status: 'playing', game: inv.game, color: COLOR[name], ver: BOT_VER, at: Date.now() });
   const api = {
     W: 360, H: 640, view: { x0: 0, y0: -80, x1: 360, y1: 720 },
     rng: mulberry32(inv.seed >>> 0),
@@ -100,7 +101,7 @@ function play(inv) {
     setTimeout(() => {
       clearInterval(g.loop);
       if (game === g) game = null;
-      ch.track({ name, status: 'lobby', game: null, color: COLOR[name], at: Date.now() });
+      ch.track({ name, status: 'lobby', game: null, color: COLOR[name], ver: BOT_VER, at: Date.now() });
     }, 2500);
   };
   const STEP = 1 / 120;
