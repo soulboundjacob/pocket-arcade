@@ -31,9 +31,11 @@
   const PICKUP_R = 26, MAX_ITEMS = 2;
   const WALL_W = 100, WALL_H = 14;
   const HAND_MARGIN = 2;           // hysteresis around the centre line
-  const ST_HZ = 15, HAND_RESEND = 0.1, EVENT_RESEND = 0.15;
+  const ST_HZ = 20, HAND_RESEND = 0.1, EVENT_RESEND = 0.15;
   const SEND_CAP = 20, ST_CAP = 15;
-  const INTERP_DELAY = 0.1, EXTRAP_MAX = 0.15;
+  // Remote mallet is drawn slightly in the past; the remote-owned puck is predicted forward
+  // from its newest snapshot by the measured one-way latency (see predictRemotePuck).
+  const INTERP_DELAY = 0.06, EXTRAP_MAX = 0.15, PREDICT_MAX = 0.3;
   const SILENCE = 2;
   const BOT = { maxV: 950, delay: 0.14, err: 12 };
   const AUTO = { maxV: 1350, delay: 0.08, err: 6 };
@@ -687,7 +689,7 @@
         if (solo || owner === me) { bx = puck.x; by = puck.y; mode = 'sim'; }
         else if (pend) { bx = pend.x; by = pend.y; mode = 'pend'; }
         else {
-          const s = bufSample(rbuf, T - INTERP_DELAY, true);
+          const s = predictRemotePuck();
           if (s) { bx = s.x; by = s.y; } else { bx = puck.x; by = puck.y; }
           mode = 'buf';
         }
@@ -695,8 +697,37 @@
         viewMode = mode;
         const k = Math.exp(-dt * 9);
         vis.x *= k; vis.y *= k;
+        if (mode === 'buf' && predPrev) {
+          // a fresh snapshot can shift the prediction; ease that jump out over ~40 ms
+          const jx = bx - predPrev.x, jy = by - predPrev.y;
+          if (jx * jx + jy * jy > 4) { vis.x -= jx * 0.85; vis.y -= jy * 0.85; }
+        }
+        predPrev = mode === 'buf' ? { x: bx, y: by } : null;
         vpx = bx + vis.x; vpy = by + vis.y;
         // the engine view of the puck for the AI
+      }
+      // Dead-reckon the puck the other phone owns: start from its newest snapshot (stamped at
+      // receipt) and advance it by the time since then plus the one-way latency, with friction
+      // and rail bounces. It only changes course when their mallet hits it, which the next
+      // snapshot corrects.
+      let predPrev = null;
+      function predictRemotePuck() {
+        const n = rbuf.length;
+        if (!n) return null;
+        const last = rbuf[n - 1];
+        let x = last.x, y = last.y, vx = last.vx || 0, vy = last.vy || 0;
+        let d = Math.min(PREDICT_MAX, Math.max(0, T - last.t + (lat || 0)));
+        const step = 1 / 120, lo = X0 + PR, hi = X1 - PR, top = Y0 + PR, bot = Y1 - PR;
+        while (d > 1e-6) {
+          const h = Math.min(step, d); d -= h;
+          x += vx * h; y += vy * h;
+          if (x < lo) { x = lo + (lo - x); vx = -vx * 0.9; }
+          if (x > hi) { x = hi - (x - hi); vx = -vx * 0.9; }
+          if (y < top) { y = top; vy = Math.abs(vy) * 0.9; }
+          if (y > bot) { y = bot; vy = -Math.abs(vy) * 0.9; }
+          vx *= 0.997; vy *= 0.997;
+        }
+        return { x, y };
       }
       function visiblePuck() {
         if (solo || owner === me) return puck;

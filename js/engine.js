@@ -40,6 +40,9 @@
 (function (root) {
   'use strict';
   const WORLD_W = 360, WORLD_H = 640, STEP = 1 / 120;
+  // Ghosts go out 5 times a second: enough for mini boards and round sync, and it keeps
+  // the Supabase Realtime message count down (real-time games send their own state).
+  const GHOST_EVERY = 0.2;
   const W = WORLD_W, H = WORLD_H;
   const games = {};
   const order = [];
@@ -187,7 +190,7 @@
         while (acc >= STEP) { inst.update(STEP); simT += STEP; acc -= STEP; }
         if (state === 'play') {
           ghostT += dt;
-          if (ghostT >= 0.125) { ghostT = 0; sendGhost(); }
+          if (ghostT >= GHOST_EVERY) { ghostT = 0; sendGhost(); }
         } else {
           overT += dt;
         }
