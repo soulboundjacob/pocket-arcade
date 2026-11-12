@@ -262,6 +262,41 @@
       "file": "bg_island_wide.png",
       "w": 640,
       "h": 360
+    },
+    "prop_palm": {
+      "file": "prop_palm.png",
+      "w": 56,
+      "h": 84,
+      "ax": 0.5,
+      "ay": 0.97
+    },
+    "prop_bush": {
+      "file": "prop_bush.png",
+      "w": 40,
+      "h": 26,
+      "ax": 0.5,
+      "ay": 0.97
+    },
+    "prop_rock": {
+      "file": "prop_rock.png",
+      "w": 36,
+      "h": 28,
+      "ax": 0.5,
+      "ay": 0.97
+    },
+    "prop_mushroom": {
+      "file": "prop_mushroom.png",
+      "w": 34,
+      "h": 40,
+      "ax": 0.5,
+      "ay": 0.97
+    },
+    "prop_crate": {
+      "file": "prop_crate.png",
+      "w": 26,
+      "h": 26,
+      "ax": 0.5,
+      "ay": 0.97
     }
   }
 }

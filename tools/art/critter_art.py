@@ -524,6 +524,109 @@ def thumb():
     A.make_cam(0, 2.9, (0.0, 0.36))
     A.render(f'{OUT}/thumb_critters.png'); print('thumb_critters')
 
+
+# ------------------------------------------------------------------ props (side-view decoration, base on the bottom edge, 3 px / unit)
+def prop_frame(key, W, H, build):
+    """frame: W x H logical units, frame bottom = z 0 (props sink a little below so the base is cropped flat), x centred on 0"""
+    if A.ONLY and key not in A.ONLY: return
+    A.clear(); build(); A.lights(); A.setup(W * 3, H * 3)
+    A.make_cam(0, max(W, H) * L, (0, H / 2 * L))
+    A.render(f'{OUT}/{key}.png'); print(key)
+
+def leaf(name, cx, cz, ang, length, wid, droop, y, m, n=12, outline=True):
+    a = radians(ang); sp = []
+    for i in range(n + 1):
+        t = i / n; s = t * length
+        sp.append((cx + cos(a) * s, cz + sin(a) * s - droop * t * t * length, t))
+    up, lo = [], []
+    for i, (x, z, t) in enumerate(sp):
+        x0, z0, _ = sp[max(i - 1, 0)]; x1, z1, _ = sp[min(i + 1, n)]
+        dx, dz = x1 - x0, z1 - z0; d = math.hypot(dx, dz) or 1.0
+        nx, nz = -dz / d, dx / d
+        w = wid * (sin(pi * min(t * 1.08, 1.0)) ** 0.55) * (1.0 - 0.25 * t)
+        up.append((x + nx * w, z + nz * w)); lo.append((x - nx * w, z - nz * w))
+    return poly(name, up + lo[::-1], y, m, depth=0.3, outline=outline)
+
+def b_palm():
+    mt = C('trunk', '#C9925A'); mtd = C('trunk_d', '#9A6338'); mf1 = C('frond_f', '#4CC24A'); mf2 = C('frond_b', '#2FA043')
+    mfd = C('frond_m', '#3AB045'); mco = C('coco', '#8A5A2E', shine=1)
+    N = 14; pts = []; rad = []
+    for i in range(N + 1):
+        t = i / N
+        pts.append((6.0 * sin(t * pi * 0.75) * L, 0, (-3 + 61 * t) * L)); rad.append((4.3 - 1.9 * t) * L)
+    tr = A.tube('trunk', pts, rad, mt, seg=16); A.add_outline(tr)
+    for i in range(2, N, 2):
+        t = i / N; x, _, z = pts[i]
+        th = math.atan2(pts[i + 1][0] - pts[i - 1][0], pts[i + 1][2] - pts[i - 1][2])
+        ell('ring', (rad[i] / L + 0.25, rad[i] / L * 0.9, 0.7), (x / L, -0.4, z / L), mtd, ry=th, outline=False, seg=24, rings=10)
+    cx, cz = pts[-1][0] / L, 57.5
+    for i, (a, ln, dr, y, m) in enumerate([(138, 22, 0.55, 2.0, mf2), (45, 19, 0.5, 2.5, mf2), (92, 18, 0.1, 3.0, mf2),
+                                           (172, 26, 0.95, 0.0, mf1), (8, 22, 0.95, -0.5, mf1), (212, 18, 0.6, -1.5, mfd)]):
+        leaf('frond%d' % i, cx, cz, a, ln, 3.9, dr, y, m)
+    ell('crown', (3.6, 3.2, 2.6), (cx, -0.5, cz - 0.5), mf2)
+    for (x, z, y) in ((cx - 3.2, cz - 5.2, -3.0), (cx + 1.6, cz - 6.2, -3.2), (cx + 4.4, cz - 4.2, 2.5)):
+        ell('coco', (3.1, 3.1, 3.1), (x, y, z), mco)
+
+def b_bush():
+    mg = C('bush', '#46BE4C'); mgl = C('bush_l', '#6FDA5E'); mgd = C('bush_d', '#33A042')
+    for nm, r, c, m in (('l', (9.5, 6.5, 8.5), (-9.0, 1.5, 7.2), mgd), ('r', (9.5, 6.5, 8.8), (9.0, 1.2, 7.4), mgd),
+                        ('c', (11.5, 7.0, 11.0), (0.0, 0.0, 10.0), mg), ('t', (6.5, 5.0, 6.0), (-2.0, -1.5, 15.5), mgl)):
+        ell('b' + nm, r, c, m, seg=36, rings=18)
+    mp = C('fl_p', '#FF6FB5', shine=1); my = C('fl_y', '#FFD84A', shine=1); mw = C('fl_w', '#FFFFFF', shine=1); mo = C('fl_o', '#FF9A3C', shine=1)
+    for (x, z, m) in ((-8.5, 12.0, mp), (6.5, 17.0, mo), (10.5, 8.0, mw)):
+        ell('fl', (2.7, 1.4, 2.7), (x, -6.6, z), m, seg=20, rings=10)
+        ell('flc', (1.1, 0.8, 1.1), (x, -7.9, z), my, outline=False, seg=14, rings=8)
+
+def b_rock():
+    mr = C('rock', '#A6A9BC'); mrh = C('rock_h', '#C4C7D6'); mrd = C('rock_d', '#858AA2'); mm = C('moss', '#58BE45'); mmd = C('moss_d', '#3FA23A')
+    ell('r_main', (16.2, 10.0, 17.0), (0, 0, 6.0), mr, seg=44, rings=22, sharp=40)
+    ell('r_side', (9.0, 7.0, 9.5), (9.5, -4.0, 4.5), mrh, seg=32, rings=16)
+    ell('r_dent', (6.5, 6.0, 7.0), (-9.5, -5.0, 6.0), mrd, seg=28, rings=14)
+    ell('moss1', (8.0, 7.0, 4.0), (-3.5, -2.0, 19.5), mm, seg=32, rings=14)
+    ell('moss2', (4.2, 4.0, 3.0), (3.0, -4.0, 21.0), mmd, seg=24, rings=12)
+    ell('moss3', (3.0, 3.0, 2.4), (-11.5, -6.5, 12.5), mm, seg=20, rings=10)
+
+def b_mushroom():
+    ms = C('stem', '#FFF1D6'); msd = C('stem_d', '#E8D2AE'); mc = C('cap', '#EE3B3B', shine=1); mw = C('spot', '#FFFFFF')
+    ell('stem', (6.4, 5.4, 14.5), (0, 0, 8.5), ms, seg=32, rings=16)
+    ell('stem_s', (2.2, 1.0, 9.0), (-3.0, -4.8, 9.0), msd, outline=False, seg=16, rings=10)
+    z0, Rr, Hh = 20.0, 15.0, 15.5
+    prof = [(0.0, z0), (Rr * 0.97, z0)]
+    for k in range(1, 15):
+        a = (pi / 2) * k / 14
+        prof.append((Rr * cos(a) * (1.0 if k > 0 else 1), z0 + 1.2 + (Hh - 1.2) * sin(a)))
+    prof = [(r * L, z * L) for r, z in prof]
+    cap = A.lathe('cap', prof, [0] * (len(prof) - 1), seg=56, mats=[mc], smooth=True, sharp=60)
+    for vv in cap.data.vertices: vv.co.y *= 0.78
+    A.add_outline(cap)
+    def cap_y(x, z):
+        u = (z - z0 - 1.2) / (Hh - 1.2); r = Rr * math.sqrt(max(0.0, 1 - u * u))
+        return -0.78 * math.sqrt(max(0.0, r * r - x * x))
+    for (x, z, sx, sz) in ((-6.5, 28.5, 3.3, 2.6), (3.5, 31.5, 3.0, 2.3), (8.5, 25.0, 2.6, 2.4), (-1.0, 24.0, 2.0, 1.6), (-10.5, 23.5, 1.8, 1.8)):
+        ell('spot', (sx, 1.2, sz), (x, cap_y(x, z) - 0.2, z), mw, outline=False, seg=24, rings=12)
+
+def b_crate():
+    mw = F_('wood'); md = F_('wood_d'); mdd = F_('wood_dd')
+    o = A.prism('crate', [(x * L, z * L) for x, z in [(-11, 0), (11, 0), (11, 22), (-11, 22)]], 6 * L, mw, bevel=0.01, seg=2)
+    A.add_outline(o)
+    T = 3.2; yb = -3.2
+    for nm, pts in (('l', [(-11, 0), (-11 + T, 0), (-11 + T, 22), (-11, 22)]), ('r', [(11 - T, 0), (11, 0), (11, 22), (11 - T, 22)]),
+                    ('t', [(-11, 22 - T), (11, 22 - T), (11, 22), (-11, 22)]), ('b', [(-11, 0), (11, 0), (11, T), (-11, T)])):
+        poly('fr' + nm, pts, yb, md, depth=0.4)
+    d = 1.9; a = 11 - T * 0.6; b = 22 - T * 0.6
+    poly('diag', [(-11 + T, T + d), (-11 + T + d * 1.4, T), (11 - T, 22 - T - d), (11 - T - d * 1.4, 22 - T)], yb, md, depth=0.4)
+    for (x, z) in ((-7.4, 3.4), (7.4, 3.4), (-7.4, 18.6), (7.4, 18.6)):
+        ell('nail', (0.9, 0.5, 0.9), (x, yb - 0.5, z), mdd, outline=False, seg=12, rings=8)
+
+def F_(k): return A.F(k)
+
+def props():
+    prop_frame('prop_palm', 56, 84, b_palm)
+    prop_frame('prop_bush', 40, 26, b_bush)
+    prop_frame('prop_rock', 36, 28, b_rock)
+    prop_frame('prop_mushroom', 34, 40, b_mushroom)
+    prop_frame('prop_crate', 26, 26, b_crate)
+
 # ------------------------------------------------------------------ main
 if __name__ == '__main__':
     T = A.TARGETS
@@ -536,3 +639,4 @@ if __name__ == '__main__':
     if 'bg' in T: bg()
     if 'bgwide' in T: bg_wide()
     if 'thumb' in T: thumb()
+    if 'props' in T: props()
