@@ -53,7 +53,11 @@
     display: flex; align-items: center; gap: 10px; margin: 0 0 12px; padding: 10px 10px 10px 14px; border-radius: 16px;
     background: #fff3c4; color: #6b4a00; font-weight: 500; font-size: 15px; line-height: 1.3;
   }
-  .a2hs[hidden] { display: none; }
+  .a2hs[hidden], .update[hidden] { display: none; }
+  .update {
+    display: block; width: 100%; margin: 0 0 12px; padding: 12px 14px; border-radius: 16px; text-align: left;
+    background: var(--me); color: #fff; font-weight: 600; font-size: 16px;
+  }
   .a2hs span { flex: 1; }
   .a2hs button { flex: none; width: 32px; height: 32px; border-radius: 50%; font-size: 15px; color: #6b4a00; }
   .wrap { max-width: 520px; margin: 0 auto; }
@@ -114,6 +118,13 @@
   .best.blue { background: var(--blue-soft); color: #2459a8; }
   .best.pink { background: var(--pink-soft); color: #b73252; }
   .best.lead { box-shadow: inset 0 0 0 2px currentColor; }
+
+  .card.featured { grid-column: 1 / -1; }
+  .card.featured .art { aspect-ratio: 2 / 1; }
+  .card.featured .name { font-size: 23px; padding-top: 12px; }
+  .card.featured .blurb { min-height: 0; font-size: 15px; }
+  .card.featured .bests { grid-template-columns: 1fr 1fr; }
+  .more { grid-column: 1 / -1; margin: 8px 4px -2px; color: var(--muted); font-weight: 600; font-size: 13px; text-transform: uppercase; letter-spacing: 0.6px; }
 
   /* ---------- buttons, overlays */
   .btn {
@@ -222,6 +233,8 @@
   .res-col .s { font-weight: 700; font-size: 56px; line-height: 1.1; }
   .res-col .badge { display: inline-block; margin-top: 4px; padding: 3px 10px; border-radius: 999px; background: #fff3c4; color: #8a5b00; font-weight: 600; font-size: 13px; }
   .res-col .badge[hidden] { display: none; }
+  .res-why { margin: -8px 0 4px; text-align: center; color: var(--muted); font-weight: 600; font-size: 16px; }
+  .res-why:empty { display: none; }
   .res-best { text-align: center; color: var(--muted); font-weight: 600; font-size: 16px; }
   .res-best:empty { display: none; }
   #res-tally { justify-content: center; margin: 2px 0 8px; }
@@ -246,6 +259,7 @@
       <div class="brand">Pocket Arcade</div>
       <button id="me-chip" class="me-chip"><span class="dot"></span><span id="me-name"></span></button>
     </header>
+    <button id="update" class="update" hidden>A new version is ready. Tap to update.</button>
     <div id="a2hs" class="a2hs" hidden><span>For full screen, add this page to your Home Screen: tap Share, then Add to Home Screen.</span><button id="a2hs-close" aria-label="Hide">✕</button></div>
     <div id="peer" class="peer away"><span class="dot"></span><span class="txt"></span></div>
     <div id="tally" class="tally"></div>
@@ -267,6 +281,7 @@
   <div class="res">
     <div id="res-game" class="res-game"></div>
     <h1 id="res-title" class="res-title"></h1>
+    <div id="res-why" class="res-why"></div>
     <div class="res-cols">
       <div id="res-me" class="res-col"><div class="n"></div><div class="s"></div><div class="badge" hidden>New best</div></div>
       <div id="res-opp" class="res-col"><div class="n"></div><div class="s"></div><div class="badge" hidden>New best</div></div>
@@ -304,14 +319,15 @@
 <div id="conn" class="conn">Reconnecting…</div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"></script>
-<script>window.ARCADE_STYLE = "toon";</script>
-<script src="js/config.js"></script>
-<script src="js/engine.js"></script>
-<script src="js/games/plane.js"></script>
-<script src="js/games/flip.js"></script>
-<script src="js/games/stack.js"></script>
-<script src="js/games/keepup.js"></script>
-<script src="js/net.js"></script>
-<script src="js/shell.js"></script>
+<script>window.ARCADE_STYLE = "toon"; window.ARCADE_VERSION = "20261112104955";</script>
+<script src="js/config.js?v=20261112104955"></script>
+<script src="js/engine.js?v=20261112104955"></script>
+<script src="js/games/blocks.js?v=20261112104955"></script>
+<script src="js/games/plane.js?v=20261112104955"></script>
+<script src="js/games/flip.js?v=20261112104955"></script>
+<script src="js/games/stack.js?v=20261112104955"></script>
+<script src="js/games/keepup.js?v=20261112104955"></script>
+<script src="js/net.js?v=20261112104955"></script>
+<script src="js/shell.js?v=20261112104955"></script>
 </body>
 </html>

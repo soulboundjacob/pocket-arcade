@@ -75,6 +75,81 @@
       "file": "thumb_keepup.png",
       "w": 150,
       "h": 100
+    },
+    "block_red": {
+      "file": "block_red.png",
+      "w": 32,
+      "h": 32
+    },
+    "block_orange": {
+      "file": "block_orange.png",
+      "w": 32,
+      "h": 32
+    },
+    "block_yellow": {
+      "file": "block_yellow.png",
+      "w": 32,
+      "h": 32
+    },
+    "block_green": {
+      "file": "block_green.png",
+      "w": 32,
+      "h": 32
+    },
+    "block_teal": {
+      "file": "block_teal.png",
+      "w": 32,
+      "h": 32
+    },
+    "block_blue": {
+      "file": "block_blue.png",
+      "w": 32,
+      "h": 32
+    },
+    "block_purple": {
+      "file": "block_purple.png",
+      "w": 32,
+      "h": 32
+    },
+    "block_pink": {
+      "file": "block_pink.png",
+      "w": 32,
+      "h": 32
+    },
+    "block_junk": {
+      "file": "block_junk.png",
+      "w": 32,
+      "h": 32
+    },
+    "icon_bomb": {
+      "file": "icon_bomb.png",
+      "w": 48,
+      "h": 48
+    },
+    "icon_slow": {
+      "file": "icon_slow.png",
+      "w": 48,
+      "h": 48
+    },
+    "icon_junk": {
+      "file": "icon_junk.png",
+      "w": 48,
+      "h": 48
+    },
+    "icon_rush": {
+      "file": "icon_rush.png",
+      "w": 48,
+      "h": 48
+    },
+    "icon_mirror": {
+      "file": "icon_mirror.png",
+      "w": 48,
+      "h": 48
+    },
+    "thumb_blocks": {
+      "file": "thumb_blocks.png",
+      "w": 150,
+      "h": 100
     }
   }
 }

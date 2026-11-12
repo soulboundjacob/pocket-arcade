@@ -712,6 +712,313 @@ def hero():
     render(f'{ROOT}/assets/hero_{STYLE}.png')
     print(f'[{STYLE}] hero')
 
+# ================================================================ puzzle blocks / power-up icons / thumb_blocks
+BLOCK_HEX = {
+    'red': '#EE3B3B', 'orange': '#FF8A1F', 'yellow': '#FFD21F', 'green': '#4CCB3A',
+    'teal': '#16C3BE', 'blue': '#2F6FEA', 'purple': '#9047E3', 'pink': '#FF6FB5', 'junk': '#8E929C',
+}
+HALF = 0.13   # body half-size: 27 logical body + 2x2 outline + 1 margin each side = 32 frame
+CRACK = None
+
+def crack_mat():
+    global CRACK
+    if CRACK:
+        return CRACK
+    m = bpy.data.materials.new('crack'); m.use_nodes = True; m.use_fake_user = True
+    nt = m.node_tree; nt.nodes.clear()
+    out = nd(nt, 'ShaderNodeOutputMaterial'); em = nd(nt, 'ShaderNodeEmission')
+    em.inputs['Color'].default_value = (lin(0.17), lin(0.15), lin(0.22), 1)
+    nt.links.new(em.outputs[0], out.inputs['Surface'])
+    CRACK = m
+    return m
+
+def soften(o):
+    """smooth bevels, flat big faces (keeps the toon bands clean across a face)."""
+    bm = bmesh.new(); bm.from_mesh(o.data)
+    def flat(f):
+        a = f.calc_area(); n = f.normal
+        return (a > 0.002 and max(abs(n.x), abs(n.y), abs(n.z)) > 0.999) or a > 0.012
+    for f in bm.faces:
+        f.smooth = True
+    for e in bm.edges:
+        if len(e.link_faces) == 2:
+            e.smooth = not any(flat(f) for f in e.link_faces)
+        else:
+            e.smooth = False
+    bm.to_mesh(o.data); bm.free()
+
+def rbox(name, sx, sy, sz, bevel, seg, mat):
+    bm = bmesh.new(); bmesh.ops.create_cube(bm, size=1.0)
+    for v in bm.verts:
+        v.co.x *= sx; v.co.y *= sy; v.co.z *= sz
+    o = mesh_obj(name, bm, [mat], smooth=False)
+    bv = o.modifiers.new('b', 'BEVEL'); bv.width = bevel; bv.segments = seg; bv.limit_method = 'ANGLE'; bv.profile = 0.5
+    bake(o)
+    return o
+
+def chip(o, loc, rot, size):
+    bm = bmesh.new(); bmesh.ops.create_cube(bm, size=1.0)
+    for v in bm.verts:
+        v.co *= size; v.co.y *= 6
+    c = bpy.data.objects.new('cutter', bpy.data.meshes.new('cutter')); bm.to_mesh(c.data); bm.free(); link(c)
+    c.location = loc; c.rotation_euler = tuple(radians(a) for a in rot)
+    b = o.modifiers.new('chip', 'BOOLEAN'); b.operation = 'DIFFERENCE'; b.object = c; b.solver = 'EXACT'
+    bake(o)
+    bpy.data.objects.remove(c)
+
+def strip(name, pts, w, y, taper=True):
+    """flat dark crack ribbon on a front face (x,z points) at depth y"""
+    bm = bmesh.new()
+    n = len(pts)
+    L, R = [], []
+    for i, (x, z) in enumerate(pts):
+        a = pts[max(i - 1, 0)]; b = pts[min(i + 1, n - 1)]
+        dx, dz = b[0] - a[0], b[1] - a[1]
+        l = math.hypot(dx, dz) or 1
+        nx, nz = -dz / l, dx / l
+        k = 1.0
+        if taper:
+            t = i / (n - 1); k = 0.45 + 1.1 * (1 - abs(2 * t - 1)) * 0.6
+        L.append(bm.verts.new((x + nx * w * k / 2, y, z + nz * w * k / 2)))
+        R.append(bm.verts.new((x - nx * w * k / 2, y, z - nz * w * k / 2)))
+    for i in range(n - 1):
+        bm.faces.new((L[i], R[i], R[i + 1], L[i + 1]))
+    bmesh.ops.recalc_face_normals(bm, faces=bm.faces)
+    for f in bm.faces:
+        if f.normal.y > 0:
+            f.normal_flip()
+    me = bpy.data.meshes.new(name); bm.to_mesh(me); bm.free(); me.materials.append(crack_mat())
+    o = bpy.data.objects.new(name, me); link(o); return o
+
+def b_block(col, size=HALF):
+    m = mat('blk_' + col, BLOCK_HEX[col], shine=(0 if col == 'junk' else 1))
+    o = rbox('block', 2 * size, 2 * size, 2 * size, 0.055 * size / HALF, 6, m)
+    objs = []
+    if col == 'junk':
+        chip(o, (size * 0.98, 0, size * 0.98), (10, 35, 0), 0.11 * size / HALF)
+        k = size / HALF
+        objs.append(strip('c1', [(-0.035 * k, 0.088 * k), (-0.012 * k, 0.045 * k), (-0.052 * k, 0.005 * k), (-0.02 * k, -0.04 * k), (-0.058 * k, -0.088 * k)], 0.015 * k, -size - 0.001))
+        objs.append(strip('c2', [(0.088 * k, -0.01 * k), (0.052 * k, -0.03 * k), (0.066 * k, -0.062 * k)], 0.013 * k, -size - 0.001))
+        objs.append(strip('c3', [(-0.052 * k, 0.005 * k), (-0.088 * k, 0.018 * k)], 0.012 * k, -size - 0.001))
+    soften(o); add_outline(o)
+    r = empty('block'); adopt(r, [o] + objs); return r
+
+def blk_render(col):
+    key = 'block_' + col
+    if ONLY and key not in ONLY:
+        return
+    clear(); b_block(col); lights(); setup(96, 96)
+    make_cam(0, 0.32, (0, 0))
+    render(f'{OUT}/{key}.png'); print(f'[{STYLE}] {key}')
+
+def blocks():
+    for c in BLOCK_HEX:
+        blk_render(c)
+
+# ---------------------------------------------------------------- icon models
+def tube(name, pts, r, mat_, seg=10):
+    bm = bmesh.new(); rings = []
+    P = [Vector(p) for p in pts]
+    for i, p in enumerate(P):
+        t = (P[min(i + 1, len(P) - 1)] - P[max(i - 1, 0)]).normalized()
+        a = Vector((0, 1, 0)); nrm = t.cross(a).normalized(); bn = t.cross(nrm).normalized()
+        rr = r[i] if isinstance(r, (list, tuple)) else r
+        rings.append([bm.verts.new(p + (nrm * cos(2 * pi * k / seg) + bn * sin(2 * pi * k / seg)) * rr) for k in range(seg)])
+    for i in range(len(P) - 1):
+        for k in range(seg):
+            bm.faces.new((rings[i][k], rings[i][(k + 1) % seg], rings[i + 1][(k + 1) % seg], rings[i + 1][k]))
+    for ring in (rings[0], rings[-1]):
+        bm.faces.new(ring)
+    bmesh.ops.recalc_face_normals(bm, faces=bm.faces)
+    return mesh_obj(name, bm, [mat_], smooth=True, sharp=50)
+
+def prism(name, pts, depth, mat_, bevel=0.0, seg=3):
+    bm = bmesh.new()
+    a = [bm.verts.new((x, -depth / 2, z)) for x, z in pts]
+    b = [bm.verts.new((x, depth / 2, z)) for x, z in pts]
+    n = len(pts)
+    bm.faces.new(a[::-1]); bm.faces.new(b)
+    for i in range(n):
+        j = (i + 1) % n
+        bm.faces.new((a[i], a[j], b[j], b[i]))
+    bmesh.ops.recalc_face_normals(bm, faces=bm.faces)
+    o = mesh_obj(name, bm, [mat_], smooth=False)
+    if bevel:
+        bv = o.modifiers.new('b', 'BEVEL'); bv.width = bevel; bv.segments = seg; bv.limit_method = 'ANGLE'; bv.profile = 0.5
+        bake(o)
+    return o
+
+def star(name, n, r1, r2, depth, mat_, rot=0):
+    pts = [((r1 if i % 2 == 0 else r2) * cos(rot + pi * i / n), (r1 if i % 2 == 0 else r2) * sin(rot + pi * i / n)) for i in range(2 * n)]
+    return prism(name, pts, depth, mat_)
+
+def IM(k):
+    t = {
+        'bomb': ('#34344A', {'shine': 1}), 'collar': ('#B9BFCC', {'metal': True, 'shine': 1}),
+        'fuse': ('#C99A5B', {}), 'spark_o': ('#FF7A1A', {}), 'spark_y': ('#FFE23A', {}), 'spark_w': ('#FFFBE0', {}),
+        'wood': ('#B7773D', {'shine': 1}), 'brass': ('#EAB84A', {'shine': 1}), 'glass': ('#B9E6FA', {'shine': 1}),
+        'sand': ('#FFC83D', {}), 'stone': ('#8E929C', {}), 'bolt': ('#FFD21F', {'shine': 1}),
+        'frame': ('#F4B93A', {'shine': 1}), 'mirror': ('#9FDBFF', {'shine': 1}), 'mshine': ('#F2FBFF', {}),
+    }[k]
+    return mat('i_' + k, t[0], **t[1])
+
+def b_bomb():
+    r = 0.185
+    bm = bmesh.new(); bmesh.ops.create_uvsphere(bm, u_segments=48, v_segments=24, radius=r)
+    body = mesh_obj('bomb', bm, [IM('bomb')], smooth=True, sharp=60); add_outline(body)
+    body.location = (0, 0, -0.04)
+    col = lathe('collar', [(0.062, 0.0), (0.075, 0.012), (0.075, 0.05), (0.06, 0.06), (0.05, 0.062)], [0, 0, 0, 0], seg=32, mats=[IM('collar')], smooth=True, sharp=50)
+    col.location = (0, 0, 0.115)
+    add_outline(col)
+    fz = 0.175
+    fuse = tube('fuse', [(0, 0, fz), (0.01, 0, fz + 0.04), (0.045, 0, fz + 0.075), (0.095, 0, fz + 0.085)], 0.024, IM('fuse'))
+    add_outline(fuse)
+    sp1 = star('s1', 5, 0.105, 0.048, 0.03, IM('spark_o'), rot=radians(18)); sp1.location = (0.115, -0.02, fz + 0.095)
+    sp2 = star('s2', 5, 0.065, 0.03, 0.03, IM('spark_y'), rot=radians(54)); sp2.location = (0.115, -0.045, fz + 0.095)
+    sp3 = star('s3', 4, 0.032, 0.016, 0.02, IM('spark_w'), rot=0); sp3.location = (0.115, -0.065, fz + 0.095)
+    add_outline(sp1)
+    r_ = empty('bomb'); adopt(r_, [body, col, fuse, sp1, sp2, sp3])
+    return r_
+
+def b_slow():
+    wood = IM('wood'); brass = IM('brass')
+    capH = 0.04
+    def cap(z):
+        c = rbox('cap', 0.36, 0.30, capH, 0.016, 4, brass)
+        c.location = (0, 0, z); soften(c); add_outline(c); return c
+    top = cap(0.215); bot = cap(-0.215)
+    # glass: two bulbs
+    gp = [(0.001, -0.185), (0.06, -0.185), (0.125, -0.165), (0.15, -0.12), (0.145, -0.07), (0.11, -0.03), (0.05, -0.008), (0.022, 0.0),
+          (0.05, 0.008), (0.11, 0.03), (0.145, 0.07), (0.15, 0.12), (0.125, 0.165), (0.06, 0.185), (0.001, 0.185)]
+    glass = lathe('glass', gp, [0] * (len(gp) - 1), seg=48, mats=[IM('glass')], smooth=True, sharp=70)
+    add_outline(glass)
+    def sandlathe(prof):
+        s = lathe('sand', prof, [0] * (len(prof) - 1), seg=40, mats=[IM('sand')], smooth=True, sharp=40); return s
+    d = 0.008
+    top_sand = sandlathe([(0.001, 0.045), (0.08, 0.03), (0.122, 0.05 - 0.0), (0.145 + d, 0.07), (0.15 + d, 0.105), (0.15 + d, 0.115), (0.001, 0.115)][:0] or
+                         [(0.001, 0.04), (0.052 + d, 0.012), (0.11 + d, 0.034), (0.145 + d, 0.07), (0.15 + d, 0.10), (0.001, 0.10)])
+    bot_sand = sandlathe([(0.001, -0.176), (0.09, -0.176), (0.128, -0.162), (0.146 + d, -0.125), (0.14 + d, -0.1), (0.08, -0.075), (0.03, -0.04), (0.001, -0.032)])
+    stream = tube('stream', [(0, 0, 0.02), (0, 0, -0.06)], 0.014, IM('sand'), seg=8)
+    posts = []
+    for sx in (-0.145, 0.145):
+        p = tube('post', [(sx, 0.0, -0.2), (sx, 0.0, 0.2)], 0.028, wood, seg=12)
+        # slight forward offset so posts sit beside the glass
+        add_outline(p); posts.append(p)
+    r_ = empty('slow'); adopt(r_, [top, bot, glass, top_sand, bot_sand, stream] + posts)
+    return r_
+
+def b_stone(sx=0.40, sy=0.24, sz=0.22, cracks=True):
+    o = rbox('brick', sx, sy, sz, 0.042, 5, IM('stone'))
+    chip(o, (sx / 2 - 0.005, sy * 0.2, sz / 2 - 0.005), (10, 35, 12), 0.115)
+    soften(o); add_outline(o)
+    objs = [o]
+    if cracks:
+        yf = -sy / 2 - 0.001
+        objs.append(strip('c1', [(-0.06, 0.07), (-0.035, 0.03), (-0.085, -0.005), (-0.05, -0.05), (-0.09, -0.09)], 0.016, yf))
+        objs.append(strip('c2', [(0.10, -0.01), (0.06, -0.035), (0.08, -0.07)], 0.014, yf))
+        objs.append(strip('c3', [(-0.085, -0.005), (-0.15, 0.02)], 0.012, yf))
+    r_ = empty('stone'); adopt(r_, objs)
+    return r_
+
+def b_rush():
+    pts = [(-0.05, 0.22), (0.14, 0.22), (0.07, 0.06), (0.16, 0.06), (-0.09, -0.23), (-0.02, -0.06), (-0.14, -0.06)]
+    o = prism('bolt', pts, 0.09, IM('bolt'), bevel=0.016, seg=3)
+    soften(o); add_outline(o)
+    r_ = empty('rush'); adopt(r_, [o]); return r_
+
+def b_mirror():
+    R = 0.165
+    # lathe axis = z; rotate to face -y afterwards
+    fr = lathe('frame', [(0.001, -0.03), (R - 0.02, -0.03), (R, -0.012), (R, 0.02), (R - 0.02, 0.038), (R - 0.045, 0.038), (R - 0.05, 0.02), (0.001, 0.02)],
+               [0] * 7, seg=56, mats=[IM('frame')], smooth=True, sharp=50)
+    gl = lathe('mglass', [(0.001, 0.027), (R - 0.047, 0.027), (R - 0.047, 0.021), (0.001, 0.021)][:2], [0], seg=56, mats=[IM('mirror')], smooth=True, sharp=50)
+    for o in (fr, gl):
+        o.rotation_euler = (radians(90), 0, 0)
+        o.data.transform(Matrix.Identity(4))
+    fr.location = (0, 0, 0.075); gl.location = (0, 0, 0.075)
+    # rotating a lathe by +90 about X sends +z to -y (toward camera)
+    add_outline(fr)
+    h = tube('handle', [(0, 0.0, 0.075 - R + 0.01), (0, 0.0, -0.17)], [0.034, 0.042], IM('frame'), seg=14); add_outline(h)
+    bm = bmesh.new(); bmesh.ops.create_uvsphere(bm, u_segments=24, v_segments=12, radius=0.058)
+    pom = mesh_obj('pom', bm, [IM('frame')], smooth=True, sharp=60); pom.location = (0, 0, -0.18); add_outline(pom)
+    # shine streaks
+    sh1 = prism('sh1', [(-0.07, 0.07), (-0.045, 0.1), (0.0, 0.145), (-0.012, 0.15), (-0.085, 0.085)], 0.004, IM('mshine'))
+    sh1.location = (0, -0.0345, 0.075 + 0.0)
+    sh1.rotation_euler = (0, 0, 0)
+    r_ = empty('mirror'); adopt(r_, [fr, gl, h, pom, sh1])
+    r_.rotation_euler = (0, radians(-14), 0)
+    return r_
+
+def finish_icon(builder, yaw):
+    r_ = builder(); r_.rotation_euler = (r_.rotation_euler[0], r_.rotation_euler[1], radians(yaw)); return r_
+
+def icon_render(key, builder, yaw, elev=22, pad=0.05):
+    if ONLY and key not in ONLY:
+        return
+    clear(); finish_icon(builder, yaw); lights(); setup(144, 144)
+    x0, x1, y0, y1 = proj_bbox(elev)
+    sc = max(x1 - x0, y1 - y0) + 0.04 + pad
+    make_cam(elev, sc, ((x0 + x1) / 2, (y0 + y1) / 2))
+    render(f'{OUT}/{key}.png'); print(f'[{STYLE}] {key} span {(x1-x0)*100:.0f}x{(y1-y0)*100:.0f} frame {sc*100:.0f}')
+
+def icons():
+    icon_render('icon_bomb', b_bomb, -20)
+    icon_render('icon_slow', b_slow, -28)
+    icon_render('icon_junk', b_stone, -30)
+    icon_render('icon_rush', b_rush, -16)
+    icon_render('icon_mirror', b_mirror, -20)
+
+def b_piece(kind, col):
+    cells = {'T': [(0, 0), (1, 0), (2, 0), (1, 1)], 'L': [(0, 0), (0, 1), (0, 2), (1, 0)], 'I': [(0, 0), (1, 0), (2, 0), (3, 0)],
+             'S': [(0, 0), (1, 0), (1, 1), (2, 1)], 'O': [(0, 0), (1, 0), (0, 1), (1, 1)], 'J': [(1, 0), (1, 1), (1, 2), (0, 0)]}[kind]
+    sp = 0.31
+    r_ = empty('piece')
+    cx = sum(c[0] for c in cells) / len(cells); cz = sum(c[1] for c in cells) / len(cells)
+    for (i, j) in cells:
+        b = b_block(col); b.parent = r_; b.location = ((i - cx) * sp, 0, (j - cz) * sp)
+    return r_
+
+def thumb_blocks():
+    if ONLY and 'thumb_blocks' not in ONLY:
+        return
+    clear()
+    sp = 0.31
+    def at(fn, x, z, rot=0, sc=1.0, y=0.0):
+        r_ = fn(); r_.location = (x, y, z); r_.rotation_euler = (0, radians(rot), 0); r_.scale = (sc, sc, sc); return r_
+    # stack: columns -3..3, partial rows
+    rows = [
+        ['red', 'orange', 'yellow', 'junk', 'green', 'teal', 'blue'],
+        ['purple', 'pink', 'junk', 'red', 'yellow', 'green', None],
+        [None, 'teal', 'blue', 'orange', 'pink', None, None],
+        [None, None, 'purple', None, None, None, None],
+    ]
+    base_z = -0.80
+    for rj, row in enumerate(rows):
+        for ci, c in enumerate(row):
+            if c:
+                at(lambda c=c: b_block(c), (ci - 3) * sp + 0.0, base_z + rj * sp)
+    # bomb block on the stack
+    at(lambda: b_block('orange'), 0 * sp + 0.0, base_z + 4 * sp) if False else None
+    at(lambda: b_block('red'), 0, base_z + 3 * sp)
+    at(b_bomb, 0.0, base_z + 3 * sp + 0.01, 0, 0.62, y=-0.2)
+    # falling pieces
+    at(lambda: b_piece('T', 'purple'), -0.95, 0.52, 12)
+    at(lambda: b_piece('L', 'green'), 0.95, 0.40, -12)
+    at(lambda: b_piece('O', 'yellow'), -0.02, 0.62, 7)
+    at(lambda: b_piece('S', 'pink'), 1.05, -0.02, 18, 0.9) if False else None
+    lights(); setup(600, 400)
+    make_cam(8, 3.0, (0.0, 0.0))
+    render(f'{OUT}/thumb_blocks.png'); print(f'[{STYLE}] thumb_blocks')
+
+def sheet_test():
+    clear()
+    cols = ['red', 'orange', 'yellow', 'green', 'teal', 'blue', 'purple', 'pink', 'junk', 'red', 'blue', 'yellow']
+    for i, c in enumerate(cols):
+        b = b_block(c); b.location = ((i % 4 - 1.5) * 0.32, 0, (1 - i // 4) * 0.32)
+    lights(); setup(96 * 4, 96 * 3)
+    make_cam(0, 0.32 * 4, (0, 0))
+    render(f'{ROOT}/tools/art/review/blocks_sheet.png')
+
 if __name__ == '__main__':
     T = TARGETS
     if 'all' in T:
@@ -720,3 +1027,7 @@ if __name__ == '__main__':
     if 'sprites' in T: sprites()
     if 'flip' in T: flip()
     if 'thumbs' in T: thumbs()
+    if 'blocks' in T: blocks()
+    if 'icons' in T: icons()
+    if 'thumb_blocks' in T: thumb_blocks()
+    if 'sheet' in T: sheet_test()

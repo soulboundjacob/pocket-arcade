@@ -23,10 +23,11 @@ ch.on('broadcast', { event: 'msg' }, ({ payload: m }) => {
   if (m.t === 'invite') setTimeout(() => { send('answer', { id: m.id, ok: true }); log('-> answer ok'); play(m); }, 900);
   if (m.t === 'answer' && m.ok && pendingInvite && m.id === pendingInvite.id) play(pendingInvite);
   if (m.t === 'hello' && m.ask) send('hello', { bests: {}, tally: {}, ask: false });
-  if (m.t === 'done') log('opponent done with', m.s);
+  if (m.t === 'done') { log('opponent done with', m.s, m.own === false ? '(forced)' : ''); if (current && current.id === m.id && current.versus) current.forceEnd = true; }
 });
 
 let pendingInvite = null;
+let current = null;
 ch.subscribe(async status => {
   log('status', status);
   if (status !== 'SUBSCRIBED') return;
@@ -41,7 +42,18 @@ ch.subscribe(async status => {
   }
 });
 
+const COLORS = 'roygtbpk';
+function fakeBoard(t) {
+  // 9x16 board that fills up from the bottom over time
+  const rows = Math.min(16, Math.floor(t / 2.5));
+  let b = '';
+  for (let r = 0; r < 16; r++) for (let c = 0; c < 9; c++) {
+    b += r >= 16 - rows && Math.random() < 0.8 ? COLORS[(r * 3 + c) % COLORS.length] : '.';
+  }
+  return b;
+}
 function fakeGhost(g, t, alive, score) {
+  if (g === 'blocks') return { b: fakeBoard(t), s: score * 100 };
   if (g === 'plane') return { y: Math.round(320 + Math.sin(t * 2) * 110), r: Math.round(Math.cos(t * 2) * 40) / 100, a: alive ? 1 : 0 };
   if (g === 'flip') return { s: score, l: alive ? 3 : 0 };
   if (g === 'stack') return { n: score };
@@ -50,7 +62,10 @@ function fakeGhost(g, t, alive, score) {
 }
 
 function play(inv) {
+  current = { id: inv.id, versus: inv.game === 'blocks', forceEnd: false };
+  const me = current;
   ch.track({ name, status: 'playing', game: inv.game, color, at: Date.now() });
+  let nextAttack = 6;
   const life = +(process.env.BOT_LIFE || 8000 + Math.random() * 10000);
   const start = Date.now() + (3 * 700); // the app's 3-2-1 countdown
   let score = 0;
@@ -58,12 +73,19 @@ function play(inv) {
   const iv = setInterval(() => {
     const t = (Date.now() - start) / 1000;
     if (t < 0) return;
-    const alive = Date.now() - start < life;
+    const alive = Date.now() - start < life && !me.forceEnd;
     if (alive && Math.random() < 0.1) score++;
-    send('tick', { id: inv.id, s: score, g: fakeGhost(inv.game, t, alive, score) });
+    send('tick', { id: inv.id, s: me.versus ? score * 100 : score, g: fakeGhost(inv.game, t, alive, score) });
+    if (alive && me.versus && t > nextAttack) {
+      nextAttack += 6;
+      const k = ['junk', 'rush', 'mirror'][Math.floor(Math.random() * 3)];
+      send('gx', { id: inv.id, k, d: k === 'junk' ? { n: 2 } : {} });
+      log('-> attack', k);
+    }
     if (!alive) {
       clearInterval(iv);
-      for (let i = 0; i < 3; i++) setTimeout(() => send('done', { id: inv.id, s: score }), i * 1000);
+      const done = { id: inv.id, s: me.versus ? score * 100 : score, at: t, own: !me.forceEnd };
+      for (let i = 0; i < 3; i++) setTimeout(() => send('done', done), i * 1000);
       ch.track({ name, status: 'lobby', game: null, color, at: Date.now() });
       log('bot done with', score);
     }

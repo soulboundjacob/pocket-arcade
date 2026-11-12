@@ -44,6 +44,7 @@ let failed = false;
 for (let run = 0; run < runs; run++) {
   const seed = 1000 + run * 7919;
   let score = 0, overAt = null, scoreCalls = 0;
+  const sent = [];
   const api = {
     W: 360, H: 640, view: { x0: 0, y0: -70, x1: 360, y1: 710 },
     rng: mulberry32(seed),
@@ -51,6 +52,7 @@ for (let run = 0; run < runs; run++) {
     score(n) { if (!Number.isInteger(n)) throw new Error('score not integer: ' + n); score = n; scoreCalls++; },
     over() { if (overAt !== null) throw new Error('over() called twice'); overAt = t; },
     draw: noop, has: () => true, t: () => t,
+    send(type, data) { sent.push(type); if (JSON.stringify(data || {}).length > 200) throw new Error('send payload too big'); },
   };
   let t = 0;
   const STEP = 1 / 120;
@@ -63,11 +65,19 @@ for (let run = 0; run < runs; run++) {
         if (holdUntil < 0 && t >= nextTap) {
           inst.down && inst.down(60 + rnd() * 240, 200 + rnd() * 300);
           holdUntil = t + 0.05 + rnd() * 0.7;
+        } else if (holdUntil >= 0 && t < holdUntil && inst.move && i % 6 === 0) {
+          inst.move(60 + rnd() * 240, 200 + rnd() * 380);
         } else if (holdUntil >= 0 && t >= holdUntil) {
           inst.up && inst.up(180, 400);
           holdUntil = -1;
           nextTap = t + 0.15 + rnd() * 0.6;
         }
+      }
+      // versus games: throw the other player's attacks at it now and then
+      if (def.versus && inst.receive && overAt === null && i % 600 === 300) {
+        const kinds = ['junk', 'rush', 'mirror'];
+        const k = kinds[(rnd() * kinds.length) | 0];
+        inst.receive(k, k === 'junk' ? { n: 1 + ((rnd() * 3) | 0) } : {});
       }
       inst.update(STEP);
       t += STEP;
@@ -75,14 +85,14 @@ for (let run = 0; run < runs; run++) {
       if (inst.ghost && i % 15 === 0) {
         const gh = inst.ghost();
         const json = JSON.stringify(gh);
-        if (json.length > 120) throw new Error('ghost too big: ' + json.length + ' bytes');
+        if (json.length > (def.versus ? 400 : 120)) throw new Error('ghost too big: ' + json.length + ' bytes');
         for (const [k, v] of Object.entries(gh || {})) {
           if (typeof v === 'number' && !Number.isFinite(v)) throw new Error('ghost.' + k + ' is ' + v);
         }
       }
       if (overAt !== null && t - overAt > 3) break;
     }
-    console.log(`run ${run}: score ${score}, ${overAt === null ? 'still alive' : 'over at ' + overAt.toFixed(1) + 's'}, score() calls ${scoreCalls}`);
+    console.log(`run ${run}: score ${score}, ${overAt === null ? 'still alive' : 'over at ' + overAt.toFixed(1) + 's'}, score() calls ${scoreCalls}${sent.length ? ', sent ' + sent.length + ' (' + [...new Set(sent)].join(',') + ')' : ''}`);
   } catch (e) {
     failed = true;
     console.log(`run ${run}: EXCEPTION at t=${t.toFixed(2)}s: ${e.stack.split('\n').slice(0, 3).join(' | ')}`);

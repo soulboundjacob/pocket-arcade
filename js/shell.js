@@ -4,8 +4,9 @@
 
   const STYLE = window.ARCADE_STYLE || 'clay';
   const PLAYERS = { Jacob: 'blue', Laura: 'pink' };
-  const GAMES = ['plane', 'flip', 'stack', 'keepup'];
-  const TINT = { plane: '#e4efff', flip: '#ffe6d1', stack: '#fff0c2', keepup: '#d6f2ff' };
+  const GAMES = ['blocks', 'plane', 'flip', 'stack', 'keepup'];
+  const FEATURED = 'blocks';
+  const TINT = { blocks: '#3a3170', plane: '#e4efff', flip: '#ffe6d1', stack: '#fff0c2', keepup: '#d6f2ff' };
 
   const $ = s => document.querySelector(s);
   const el = (tag, cls, text) => {
@@ -133,7 +134,7 @@
     for (const id of GAMES) {
       const def = Arcade.games[id];
       if (!def) continue;
-      const card = el('button', 'card');
+      const card = el('button', 'card' + (id === FEATURED ? ' featured' : ''));
       card.style.setProperty('--tint', TINT[id]);
       const art = el('div', 'art');
       const img = new Image();
@@ -154,6 +155,7 @@
       card.appendChild(row);
       card.onclick = () => openSheet(id);
       grid.appendChild(card);
+      if (id === FEATURED) grid.appendChild(el('div', 'more', 'More games'));
     }
   }
   function toLobby() {
@@ -262,12 +264,7 @@
       incoming = null;
       overlay('invite', false);
     }
-    if (match && match.id === c.id && !match.oppDone) {
-      match.oppDone = true;
-      match.oppLeft = true;
-      updateHud();
-      maybeFinish();
-    }
+    if (match && match.id === c.id) oppGone();
   });
 
   // ---------- matches
@@ -321,6 +318,9 @@
       onGhost: gh => {
         if (duo && match && match.id === id) Net.send('tick', { id, s: match.my, g: gh });
       },
+      onSend: (k, d) => {
+        if (duo && match && match.id === id) Net.send('gx', { id, k, d });
+      },
       onOver: n => runOver(id, n),
       getGhost: () => (duo && match && match.id === id ? match.oppGhost : null),
     });
@@ -336,13 +336,18 @@
     if (!match || match.id !== id || match.myDone) return;
     match.my = n;
     match.myDone = true;
+    // own: my run ended by itself (topped out, crashed, quit). In a versus game the
+    // survivor's run is ended for them when the other player goes out, so own is false.
+    match.myOwn = !match.forcedEnd;
+    match.myAt = runner ? runner.time : 0;
     if (match.mode === 'duo') {
       // Say "done" a few times: a broadcast can get lost while a phone reconnects.
-      Net.send('done', { id, s: n });
+      const msg = { id, s: n, at: match.myAt, own: match.myOwn };
+      Net.send('done', msg);
       let sends = 0;
       const timer = setInterval(() => {
         if (++sends > 8 || !match || match.id !== id) { clearInterval(timer); return; }
-        Net.send('done', { id, s: n });
+        Net.send('done', msg);
       }, 1200);
     }
     updateHud();
@@ -373,7 +378,7 @@
       $('#opp-tag').textContent = '';
     }
     const target = $('#target');
-    if (duo && match.oppDone && !match.oppLeft && !match.myDone) {
+    if (duo && match.oppDone && !match.oppLeft && !match.myDone && !isVersus()) {
       target.textContent = match.my > match.opp ? 'In the lead' : 'Beat ' + match.opp;
       target.classList.add('on');
     } else {
@@ -395,22 +400,56 @@
   Net.on('done', d => {
     if (!match || d.id !== match.id) return;
     match.opp = d.s | 0;
+    match.oppAt = d.at;
+    match.oppOwn = d.own !== false;
     if (!match.oppDone) {
       match.oppDone = true;
       $('#out').classList.remove('on');
       updateHud();
+      // Last one standing: the other player is out, so my run ends here and I win.
+      if (isVersus() && !match.myDone) {
+        match.forcedEnd = true;
+        if (runner && runner.state === 'play') runner.end();
+        else runOver(match.id, match.my);
+      }
       maybeFinish();
     }
   });
+  Net.on('gx', m => {
+    if (match && runner && m.id === match.id) runner.receive(m.k, m.d || {});
+  });
+  function isVersus() {
+    return !!(match && match.mode === 'duo' && Arcade.games[match.game] && Arcade.games[match.game].versus);
+  }
+  // Versus winner, worked out the same way on both phones.
+  function versusOutcome(m) {
+    if (m.oppLeft) return 'left';
+    const meOwn = m.myOwn !== false, oppOwn = m.oppOwn !== false;
+    if (meOwn && !oppOwn) return 'lose';
+    if (!meOwn && oppOwn) return 'win';
+    // Both went out on their own at nearly the same moment: earlier one loses.
+    if (Number.isFinite(m.myAt) && Number.isFinite(m.oppAt) && Math.abs(m.myAt - m.oppAt) > 0.25) {
+      return m.myAt < m.oppAt ? 'lose' : 'win';
+    }
+    return m.my > m.opp ? 'win' : m.my < m.opp ? 'lose' : 'tie';
+  }
+  // The other player left mid-match (canceled, or their phone went quiet).
+  function oppGone() {
+    if (!match || match.oppDone) return;
+    match.oppDone = true;
+    match.oppLeft = true;
+    $('#out').classList.remove('on');
+    updateHud();
+    if (isVersus() && !match.myDone) {
+      match.forcedEnd = true;
+      if (runner && runner.state === 'play') runner.end();
+      else runOver(match.id, match.my);
+    }
+    maybeFinish();
+  }
   // If the other phone goes quiet mid-run (locked, lost signal), stop waiting for it.
   setInterval(() => {
-    if (match && match.mode === 'duo' && match.started && !match.oppDone && Date.now() - match.oppSeen > 7000) {
-      match.oppDone = true;
-      match.oppLeft = true;
-      $('#out').classList.remove('on');
-      updateHud();
-      maybeFinish();
-    }
+    if (match && match.mode === 'duo' && match.started && !match.oppDone && Date.now() - match.oppSeen > 7000) oppGone();
   }, 1000);
 
   function fillCol(box, name, score, isNew) {
@@ -428,12 +467,14 @@
     if (newMe) b[me] = m.my;
     const newOpp = duo && !m.oppLeft && m.opp > 0 && m.opp > (b[other()] || 0);
     if (newOpp) b[other()] = m.opp;
-    let title;
+    let title, outcome = 'solo';
     if (duo) {
       const t = tally[day()] = tally[day()] || {};
-      if (m.oppLeft) title = other() + ' left the game';
-      else if (m.my > m.opp) { title = 'You win!'; t[me] = (t[me] || 0) + 1; }
-      else if (m.my < m.opp) { title = other() + ' wins'; t[other()] = (t[other()] || 0) + 1; }
+      outcome = isVersus() ? versusOutcome(m)
+        : m.oppLeft ? 'left' : m.my > m.opp ? 'win' : m.my < m.opp ? 'lose' : 'tie';
+      if (outcome === 'left') title = other() + ' left the game';
+      else if (outcome === 'win') { title = 'You win!'; t[me] = (t[me] || 0) + 1; }
+      else if (outcome === 'lose') { title = other() + ' wins'; t[other()] = (t[other()] || 0) + 1; }
       else title = 'Tie';
     } else {
       title = newMe ? 'New best!' : 'Game over';
@@ -444,7 +485,16 @@
 
     $('#res-game').textContent = gameName(m.game);
     $('#res-title').textContent = title;
-    $('#results').dataset.outcome = !duo ? 'solo' : m.oppLeft ? 'left' : m.my > m.opp ? 'win' : m.my < m.opp ? 'lose' : 'tie';
+    $('#results').dataset.outcome = outcome;
+    // Versus rounds go to the last one standing, so say why when the scores look odd.
+    let why = '';
+    if (duo && isVersus()) {
+      if (m.quit) why = 'You quit the round.';
+      else if (outcome === 'win') why = other() + "'s blocks reached the top first.";
+      else if (outcome === 'lose') why = 'Your blocks reached the top first.';
+      else if (outcome === 'tie') why = 'You both reached the top at the same time.';
+    }
+    $('#res-why').textContent = why;
     fillCol($('#res-me'), me, m.my, newMe);
     $('#res-opp').hidden = !duo;
     if (duo) fillCol($('#res-opp'), other(), m.oppLeft ? '–' : m.opp, newOpp);
@@ -475,6 +525,7 @@
     }
     q.classList.remove('armed');
     if (!match || match.mode === 'solo' || match.myDone) return toLobby();
+    match.quit = true;
     if (runner && runner.state === 'play') runner.end();
     else runOver(match.id, 0);
   };
@@ -513,6 +564,27 @@
   });
 
   $('#a2hs-close').onclick = () => { store.set('a2hsHidden', true); $('#a2hs').hidden = true; };
+
+  // ---------- updates: tools/deploy.sh stamps version.json; offer a reload in the lobby
+  let newVersion = null;
+  async function checkVersion() {
+    if (newVersion || !window.ARCADE_VERSION) return;
+    try {
+      const r = await fetch('version.json?t=' + Date.now(), { cache: 'no-store' });
+      const v = (await r.json()).v;
+      if (v && v !== window.ARCADE_VERSION) {
+        newVersion = v;
+        $('#update').hidden = false;
+      }
+    } catch (e) { /* offline */ }
+  }
+  $('#update').onclick = () => {
+    if (match && !match.resolved) return;
+    location.replace(location.pathname + '?v=' + newVersion);
+  };
+  setInterval(checkVersion, 60000);
+  document.addEventListener('visibilitychange', () => { if (!document.hidden) checkVersion(); });
+  setTimeout(checkVersion, 5000);
 
   $('#me-chip').onclick = () => {
     const chip = $('#me-chip');
